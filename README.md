@@ -5,7 +5,7 @@ product ingredients, nutrition facts, and highlights.
 
 ## Run the app
 
-1. Install Node.js 18 or newer.
+1. Install Node.js 20.19.0 or newer.
 2. Install dependencies with `npm install`.
 3. Optionally copy `.env.example` to `.env` and set `OFF_USER_AGENT`.
 4. Start the server with `npm start` and open http://localhost:3000.
