@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product details — NutriSearch</title>
+
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+          rel="stylesheet">
+</head>
+
+<body>
+
+    <!-- Navigation Bar -->
+    <header class="navbar">
+        <a href="index.html" class="logo">
+            <span>NutriSearch</span>
+        </a>
+
+        <nav class="nav-links">
+            <a href="index.html" class="active">Home</a>
+            <a href="profile.html">Saved products</a>
+            <a href="index.html">About</a>
+            <a href="login.html" class="login-btn">Log in</a>
+        </nav>
+    </header>
+
+
+    <main>
+        <section class="product-page" id="product">
+            <div class="page-container">
+
+                <a href="results.html" class="back-link" id="backLink">← Back to results</a>
+
+                <!-- "Loading..." or an error shows here -->
+                <p class="status-message" id="status">Loading product...</p>
+
+                <div class="product-layout" id="productLayout" hidden>
+
+                    <!-- Left column -->
+                    <div class="product-side">
+                        <div class="product-image">
+                            <img id="detailImage" alt="" hidden>
+                            <span id="detailFallback">📦</span>
+                        </div>
+
+                        <button type="button" class="btn-primary full" id="saveBtn">
+                            ♡ Save to my list
+                        </button>
+                    </div>
+
+                    <!-- Right column -->
+                    <div class="product-main">
+
+                        <span class="product-brand" id="detailBrand"></span>
+                        <h1 id="detailName"></h1>
+
+                        <div class="score-row">
+                            <span class="nutri-badge nutri-lg" id="detailBadge"></span>
+                            <strong id="detailScore"></strong>
+                            <span id="detailSize"></span>
+                        </div>
+
+                        <!-- Highlights + AI Summary -->
+                        <div class="ai-box">
+                            <div class="ai-head">✨ Quick highlights (per 100 g)</div>
+                            <div class="tag-list" id="detailHighlights"></div>
+                            <p class="ai-note">
+                                A plain-language AI summary will appear here once the AI step is added.
+                            </p>
+                        </div>
+
+                        <!-- Ingredients and Nutrition -->
+                        <div class="detail-grid">
+
+                            <div class="detail-card">
+                                <h3>Ingredients</h3>
+                                <div class="tag-list" id="detailIngredients"></div>
+                            </div>
+
+                            <div class="detail-card">
+                                <h3>Nutrition per 100 g</h3>
+                                <div id="detailNutrition"></div>
+                            </div>
+
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+        </section>
+    </main>
+
+
+    <!-- Footer -->
+    <footer class="footer">
+        Built for SDG 3 (Good Health &amp; Well-being) and SDG 12
+        (Responsible Consumption)
+    </footer>
+
+    <script src="script.js"></script>
+
+</body>
+</html>

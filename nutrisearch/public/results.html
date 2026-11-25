@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search results — NutriSearch</title>
+
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+          rel="stylesheet">
+</head>
+
+<body>
+
+    <!-- Navigation Bar -->
+    <header class="navbar">
+        <a href="index.html" class="logo">
+            <span>NutriSearch</span>
+        </a>
+
+        <nav class="nav-links">
+            <a href="index.html" class="active">Home</a>
+            <a href="profile.html">Saved products</a>
+            <a href="index.html">About</a>
+            <a href="login.html" class="login-btn">Log in</a>
+        </nav>
+    </header>
+
+
+    <main>
+        <section class="search-page" id="results">
+            <div class="page-container">
+
+                <form class="search-form wide" id="searchForm">
+
+                    <span class="search-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24">
+                            <circle cx="10.8" cy="10.8" r="6.5"></circle>
+                            <path d="m16 16 4.5 4.5"></path>
+                        </svg>
+                    </span>
+
+                    <input
+                        type="search"
+                        id="searchInput"
+                        placeholder="Search a product or brand..."
+                        aria-label="Search for a food product"
+                    >
+
+                    <button type="submit">Search</button>
+
+                </form>
+
+
+                <div class="results-header">
+                    <h2 id="resultsTitle">Search for a product</h2>
+                </div>
+
+
+                <!-- Nutri-Score Filters -->
+                <div class="filter-chips">
+                    <button type="button" class="filter-chip active" data-filter="all">All</button>
+                    <button type="button" class="filter-chip" data-filter="a">Score A</button>
+                    <button type="button" class="filter-chip" data-filter="b">Score B</button>
+                    <button type="button" class="filter-chip" data-filter="c">Score C</button>
+                    <button type="button" class="filter-chip" data-filter="d">Score D</button>
+                    <button type="button" class="filter-chip" data-filter="e">Score E</button>
+                </div>
+
+
+                <!-- "Loading...", "No products found", or an error shows here -->
+                <p class="status-message" id="status"></p>
+
+
+                <!-- Product Grid (cards are added by script.js from the template below) -->
+                <div class="product-grid" id="productGrid"></div>
+
+            </div>
+        </section>
+
+
+        <!-- One product card. script.js copies this for every product it finds. -->
+        <template id="productCardTemplate">
+            <article class="product-card">
+                <div class="product-thumb">
+                    <img alt="" hidden>
+                    <span class="thumb-fallback">📦</span>
+                </div>
+                <div class="product-info">
+                    <span class="product-brand"></span>
+                    <h3></h3>
+                    <div class="product-meta">
+                        <span class="product-size"></span>
+                        <span class="nutri-badge"></span>
+                    </div>
+                    <button type="button" class="btn-outline">Check product</button>
+                </div>
+            </article>
+        </template>
+    </main>
+
+
+    <!-- Footer -->
+    <footer class="footer">
+        Built for SDG 3 (Good Health &amp; Well-being) and SDG 12
+        (Responsible Consumption)
+    </footer>
+
+    <script src="script.js"></script>
+
+</body>
+</html>

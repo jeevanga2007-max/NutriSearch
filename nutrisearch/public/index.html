@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Know What's Really in Your Food — NutriSearch</title>
+
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+          rel="stylesheet">
+</head>
+
+<body>
+
+    <!-- Navigation Bar -->
+    <header class="navbar">
+        <a href="index.html" class="logo">
+            <span>NutriSearch</span>
+        </a>
+
+        <nav class="nav-links">
+            <a href="index.html" class="active">Home</a>
+            <a href="profile.html">Saved products</a>
+            <a href="index.html">About</a>
+            <a href="login.html" class="login-btn">Log in</a>
+        </nav>
+    </header>
+
+
+    <main>
+        <section class="hero" id="home">
+
+            <div class="badge">
+                <span class="badge-dot">✓</span>
+                Free to use · Powered by Open Food Facts
+            </div>
+
+            <h1>
+                Know what's really in your<br class="desktop-break">
+                food
+            </h1>
+
+            <p class="hero-description">
+                Search any product or brand, pick the one you have, and see its
+                ingredients, nutrition and a simple health rating.
+            </p>
+
+
+            <!-- Search Form -->
+            <form class="search-form" id="searchForm">
+
+                <span class="search-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24">
+                        <circle cx="10.8" cy="10.8" r="6.5"></circle>
+                        <path d="m16 16 4.5 4.5"></path>
+                    </svg>
+                </span>
+
+                <input
+                    type="search"
+                    id="searchInput"
+                    placeholder="Search a product or brand, e.g. Maggi, Amul, oats..."
+                    aria-label="Search for a food product"
+                >
+
+                <button type="submit">Search</button>
+
+            </form>
+
+
+            <!-- Suggested Searches -->
+            <div class="suggestions">
+                <span class="try-label">Try:</span>
+
+                <button type="button" class="suggestion-chip" data-query="Maggi">Maggi</button>
+                <button type="button" class="suggestion-chip" data-query="Amul">Amul</button>
+                <button type="button" class="suggestion-chip" data-query="Oats">Oats</button>
+                <button type="button" class="suggestion-chip" data-query="Parle-G">Parle-G</button>
+                <button type="button" class="suggestion-chip" data-query="Kellogg's">Kellogg's</button>
+            </div>
+
+
+            <!-- Feature Cards -->
+            <div class="features">
+
+                <article class="feature-card">
+                    <div class="feature-icon">🔍</div>
+                    <h2>Search by name or brand</h2>
+                    <p>
+                        Type a keyword and instantly see every listed product
+                        that matches.
+                    </p>
+                </article>
+
+                <article class="feature-card">
+                    <div class="feature-icon">✓</div>
+                    <h2>Pick your product</h2>
+                    <p>
+                        Tap the exact product you have from the results list.
+                    </p>
+                </article>
+
+                <article class="feature-card">
+                    <div class="feature-icon">✨</div>
+                    <h2>Understand it</h2>
+                    <p>
+                        Get ingredients, nutrition facts and a plain-language
+                        AI summary.
+                    </p>
+                </article>
+
+            </div>
+
+        </section>
+    </main>
+
+
+    <!-- Footer -->
+    <footer class="footer">
+        Built for SDG 3 (Good Health &amp; Well-being) and SDG 12
+        (Responsible Consumption)
+    </footer>
+
+    <script src="script.js"></script>
+
+</body>
+</html>

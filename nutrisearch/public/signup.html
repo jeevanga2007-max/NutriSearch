@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign up — NutriSearch</title>
+
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+          rel="stylesheet">
+</head>
+
+<body>
+
+    <!-- Navigation Bar -->
+    <header class="navbar">
+        <a href="index.html" class="logo">
+            <span>NutriSearch</span>
+        </a>
+
+        <nav class="nav-links">
+            <a href="index.html">Home</a>
+            <a href="profile.html">Saved products</a>
+            <a href="index.html">About</a>
+            <a href="login.html" class="login-btn">Log in</a>
+        </nav>
+    </header>
+
+
+    <main>
+        <section class="auth-page">
+            <div class="page-container">
+                <div class="auth-card">
+
+                    <aside class="auth-brand">
+                        <span class="auth-logo">NutriSearch</span>
+                        <h2>Start checking smarter</h2>
+                        <p>Create a free account to save the products you look up and understand what is in them.</p>
+                        <ul>
+                            <li>✓ Free to use</li>
+                            <li>✓ Save and revisit products</li>
+                            <li>✓ Plain-language ingredient insights</li>
+                        </ul>
+                    </aside>
+
+                    <form class="auth-form" id="signupForm">
+                        <h1>Create your account</h1>
+                        <p class="auth-sub">Join NutriSearch to save products and check ingredients.</p>
+
+                        <div class="form-field">
+                            <label for="name">Full name</label>
+                            <div class="input-box">
+                                <span>👤</span>
+                                <input type="text" id="name" placeholder="Your full name" required>
+                            </div>
+                        </div>
+
+                        <div class="form-field">
+                            <label for="email">Email</label>
+                            <div class="input-box">
+                                <span>✉</span>
+                                <input type="email" id="email" placeholder="you@example.com" required>
+                            </div>
+                        </div>
+
+                        <div class="form-field">
+                            <label for="password">Password</label>
+                            <div class="input-box">
+                                <span>🔒</span>
+                                <input type="password" id="password" placeholder="At least 8 characters" minlength="8" required>
+                                <button type="button" class="eye-btn" data-toggle-password aria-label="Show password">👁</button>
+                            </div>
+                        </div>
+
+                        <div class="form-field">
+                            <label for="confirm">Confirm password</label>
+                            <div class="input-box">
+                                <span>🔒</span>
+                                <input type="password" id="confirm" placeholder="Re-enter your password" required>
+                                <button type="button" class="eye-btn" data-toggle-password aria-label="Show password">👁</button>
+                            </div>
+                        </div>
+
+                        <label class="check-label"><input type="checkbox" required> I agree to the Terms and Privacy Policy</label>
+
+                        <button type="submit" class="btn-primary full">Create account</button>
+                        <div class="divider">or</div>
+                        <button type="button" class="btn-google full">Sign up with Google</button>
+
+                        <p class="switch-text">
+                            Already have an account?
+                            <a href="login.html" class="link-green">Log in</a>
+                        </p>
+                    </form>
+
+                </div>
+            </div>
+        </section>
+    </main>
+
+
+    <!-- Footer -->
+    <footer class="footer">
+        Built for SDG 3 (Good Health &amp; Well-being) and SDG 12
+        (Responsible Consumption)
+    </footer>
+
+    <script src="script.js"></script>
+
+</body>
+</html>
