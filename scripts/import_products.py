@@ -10,9 +10,10 @@ col = client["nutriscan"]["products"]
 
 FILE = "data/en.openfoodfacts.org.products.csv.gz"
 
-TEXT_COLS = ["code", "product_name", "brands", "ingredients_text", "allergens",
-             "additives_tags", "nutriscore_grade", "countries_tags",
-             "image_url", "image_small_url"]
+col.drop()   # one-time: wipe old data so the new fields are included
+TEXT_COLS = ["code", "product_name", "brands", "quantity", "ingredients_text",
+             "allergens", "additives_tags", "nutriscore_grade", "countries_tags",
+             "countries_en", "image_url", "image_small_url"]
 NUM_COLS = ["nova_group", "energy-kcal_100g", "sugars_100g", "fat_100g",
             "saturated-fat_100g", "salt_100g", "proteins_100g",
             "carbohydrates_100g", "fiber_100g"]

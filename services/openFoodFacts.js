@@ -221,8 +221,7 @@ async function searchProducts(query) {
             json: "1",
             page_size: "24",
             fields: SEARCH_FIELDS,
-            // The India subdomain still exposes the shared catalog, so scope
-            // search results to products tagged as sold in India.
+            // Limit the shared catalog to products tagged as sold in India.
             tagtype_0: "countries",
             tag_contains_0: "contains",
             tag_0: "India"
@@ -251,4 +250,4 @@ async function getProduct(code) {
     });
 }
 
-module.exports = { searchProducts, getProduct, splitIngredients };
+module.exports = { searchProducts, getProduct, splitIngredients, buildNutrition, buildHighlights, cleanScore };

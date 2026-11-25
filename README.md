@@ -1,49 +1,27 @@
 # NutriSearch
 
-Search a food product or brand, pick the one you have, and see its ingredients,
-nutrition and quick highlights. Data comes from [Open Food Facts](https://world.openfoodfacts.org).
+NutriSearch searches food products using the Open Food Facts API and displays
+product ingredients, nutrition facts, and highlights.
 
-## Run it
+## Run the app
 
-1. Install Node.js 18 or newer (check with `node -v`).
-2. In this folder run:
+1. Install Node.js 18 or newer.
+2. Install dependencies with `npm install`.
+3. Optionally copy `.env.example` to `.env` and set `OFF_USER_AGENT`.
+4. Start the server with `npm start` and open http://localhost:3000.
 
-       npm install
-       copy .env.example .env      (Mac/Linux: cp .env.example .env)
-       npm start
+The API uses Open Food Facts directly. The optional importer in
+`scripts/import_products.py` loads the dataset in `data/` into MongoDB and
+requires `MONGODB_URI` plus Python packages `pandas`, `pymongo`, and `python-dotenv`.
 
-3. Open **http://localhost:3000** in your browser.
-   (Do not double-click the HTML files. The pages need the server.)
+## Project files
 
-Edit `.env` and put your project name and email in `OFF_USER_AGENT`.
-Open Food Facts asks every app to identify itself.
+- `server.js` starts Express and serves `public/`.
+- `routes/products.js` defines product search and detail API endpoints.
+- `services/openFoodFacts.js` fetches and formats API results.
+- `services/productDb.js` provides optional MongoDB product queries.
+- `public/` contains the website pages, styles, and browser script.
+- `scripts/import_products.py` imports products from the local dataset.
+- `test/products.test.js` contains the Node test suite.
 
-## Folders
-
-    server.js                    starts Express, serves /public, mounts the routes
-    routes/products.js           the two API addresses (search, product)
-    services/openFoodFacts.js    calls Open Food Facts, cleans the data, caches answers
-    public/                      the website: HTML, style.css, script.js
-    test/products.test.js        automated tests (npm test)
-
-## API
-
-    GET /api/products/search?q=maggi    -> { query, count, products: [ {code, name, brand, size, score, image} ] }
-    GET /api/products/8901058000290     -> { code, name, brand, size, countries, score, image,
-                                             ingredients[], nutrition[], highlights[] }
-
-Errors always look like `{ "error": "message" }`.
-
-## Tests
-
-    npm test
-
-The tests use a fake Open Food Facts, so they run without internet.
-
-## Next steps
-
-1. MongoDB + sign up / login (bcrypt, JWT)
-2. Profile page saved per user (age, height, weight, goal, diet, allergies)
-3. Saved products per user
-4. AI summary on the product page (Gemini or Claude API, called only from the server)
-5. Deploy to Render (add the .env values in Render's dashboard)
+Run the tests with `npm test`.

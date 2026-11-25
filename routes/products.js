@@ -1,7 +1,7 @@
 // /api/products routes
 
 const express = require("express");
-const { searchProducts, getProduct } = require("../services/openFoodFacts");
+const { searchProducts, getProduct } = require("../services/productDb");
 
 const router = express.Router();
 

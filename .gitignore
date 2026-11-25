@@ -1,0 +1,22 @@
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+
+# JavaScript dependencies
+node_modules/
+
+# Python-generated files
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Operating system files
+.DS_Store
+
+# Product data is kept locally and must not be committed
+data/
+
+
+data/
