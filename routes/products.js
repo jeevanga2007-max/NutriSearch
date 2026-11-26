@@ -1,7 +1,7 @@
 // /api/products routes
 
 const express = require("express");
-const { searchProducts, getProduct } = require("../services/productDb");
+const { searchProducts, getProduct, addProduct } = require("../services/productDb");
 
 const router = express.Router();
 
@@ -37,6 +37,37 @@ router.get("/:code", async function (req, res, next) {
     try {
         const product = await getProduct(code);
         res.json(product);
+    } catch (error) {
+        next(error);
+    }
+});
+
+// POST /api/products   (add a product that is missing)
+// Simple limit: 10 additions per hour per visitor
+const addAttempts = new Map();
+
+function tooManyAdds(ip) {
+    const now = Date.now();
+    const entry = addAttempts.get(ip);
+
+    if (!entry || entry.resetAt < now) {
+        addAttempts.set(ip, { count: 1, resetAt: now + 60 * 60 * 1000 });
+        return false;
+    }
+
+    entry.count++;
+    return entry.count > 10;
+}
+
+router.post("/", async function (req, res, next) {
+
+    if (tooManyAdds(req.ip)) {
+        return res.status(429).json({ error: "Too many products added. Try again later." });
+    }
+
+    try {
+        const result = await addProduct(req.body || {});
+        res.status(201).json(result);
     } catch (error) {
         next(error);
     }

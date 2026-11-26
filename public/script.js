@@ -213,6 +213,9 @@ if (productLayout) {
         }));
     }
 
+    const summary = document.getElementById("detailSummary");
+    if (summary) summary.textContent = product.summary || "";
+
     function showProduct(product) {
 
         document.title = product.name + " — NutriSearch";
@@ -405,5 +408,46 @@ const logoutBtn = document.getElementById("logoutBtn");
 if (logoutBtn) {
     logoutBtn.addEventListener("click", function () {
         window.location.href = "login.html";
+    });
+}
+
+
+/* =========================
+   6. ADD A PRODUCT (add-product.html)
+========================= */
+
+const addForm = document.getElementById("addForm");
+
+if (addForm) {
+
+    // Allows links like add-product.html?code=8901058000000
+    const presetCode = new URLSearchParams(window.location.search).get("code");
+    if (presetCode) document.getElementById("code").value = presetCode;
+
+    addForm.addEventListener("submit", async function (event) {
+        event.preventDefault();
+
+        // Send only the fields the person filled in
+        const body = {};
+        new FormData(addForm).forEach(function (value, key) {
+            if (value !== "") body[key] = value;
+        });
+
+        showStatus("Saving...");
+
+        try {
+            const response = await fetch("/api/products", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body)
+            });
+            const data = await response.json().catch(function () { return {}; });
+
+            if (!response.ok) throw new Error(data.error || "Could not save the product.");
+
+            window.location.href = "product.html?code=" + encodeURIComponent(data.code);
+        } catch (error) {
+            showStatus(error.message, true);
+        }
     });
 }
