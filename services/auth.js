@@ -1,0 +1,115 @@
+const { MongoClient } = require("mongodb");
+const { promisify } = require("node:util");
+const crypto = require("node:crypto");
+
+const scrypt = promisify(crypto.scrypt);
+const SESSION_COOKIE = "nutrisearch_session";
+const SESSION_AGE = 7 * 24 * 60 * 60 * 1000;
+let clientPromise;
+let googleKeys;
+let googleKeysFetchedAt = 0;
+
+function getUsers() {
+    if (!process.env.MONGODB_URI) throw new Error("MONGODB_URI is not configured.");
+    if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.length < 32) throw new Error("SESSION_SECRET must contain at least 32 characters.");
+    if (!clientPromise) {
+        const client = new MongoClient(process.env.MONGODB_URI);
+        clientPromise = client.connect().then(async function () {
+            const users = client.db(process.env.MONGODB_DB || "nutriscan").collection("users");
+            await users.createIndex({ email: 1 }, { unique: true });
+            await users.createIndex({ googleId: 1 }, { unique: true, sparse: true });
+            return users;
+        }).catch(function (error) { clientPromise = null; throw error; });
+    }
+    return clientPromise;
+}
+
+function normalizeEmail(email) { return String(email || "").trim().toLowerCase(); }
+
+async function hashPassword(password) {
+    const salt = crypto.randomBytes(16).toString("hex");
+    const key = await scrypt(password, salt, 64);
+    return salt + ":" + key.toString("hex");
+}
+
+async function verifyPassword(password, stored) {
+    const [salt, hash] = String(stored || "").split(":");
+    if (!salt || !hash) return false;
+    const expected = Buffer.from(hash, "hex");
+    const actual = await scrypt(password, salt, expected.length);
+    return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
+}
+
+function signSession(userId) {
+    const payload = Buffer.from(JSON.stringify({ sub: String(userId), exp: Date.now() + SESSION_AGE })).toString("base64url");
+    const signature = crypto.createHmac("sha256", process.env.SESSION_SECRET).update(payload).digest("base64url");
+    return payload + "." + signature;
+}
+
+function verifySession(token) {
+    if (!token || !process.env.SESSION_SECRET) return null;
+    const [payload, signature] = token.split(".");
+    if (!payload || !signature) return null;
+    const expected = crypto.createHmac("sha256", process.env.SESSION_SECRET).update(payload).digest();
+    let actual;
+    try { actual = Buffer.from(signature, "base64url"); } catch (_) { return null; }
+    if (actual.length !== expected.length || !crypto.timingSafeEqual(actual, expected)) return null;
+    try {
+        const session = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+        return session.exp > Date.now() ? session.sub : null;
+    } catch (_) { return null; }
+}
+
+function sessionCookieOptions() {
+    return { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: SESSION_AGE };
+}
+
+function setSession(res, userId) { res.cookie(SESSION_COOKIE, signSession(userId), sessionCookieOptions()); }
+
+async function getGoogleKeys() {
+    if (googleKeys && Date.now() - googleKeysFetchedAt < 60 * 60 * 1000) return googleKeys;
+    const response = await fetch("https://www.googleapis.com/oauth2/v3/certs");
+    if (!response.ok) throw new Error("Google sign-in could not be verified.");
+    googleKeys = await response.json();
+    googleKeysFetchedAt = Date.now();
+    return googleKeys;
+}
+
+async function verifyGoogleCredential(token) {
+    if (!process.env.GOOGLE_CLIENT_ID) throw new Error("Google sign-in is not configured.");
+    const parts = String(token || "").split(".");
+    if (parts.length !== 3) throw new Error("Google sign-in failed. Try again.");
+    const header = JSON.parse(Buffer.from(parts[0], "base64url").toString("utf8"));
+    if (header.alg !== "RS256") throw new Error("Google sign-in failed. Try again.");
+    const claims = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
+    let keys = await getGoogleKeys();
+    let jwk = keys.keys.find(function (key) { return key.kid === header.kid && key.kty === "RSA"; });
+    if (!jwk) {
+        googleKeysFetchedAt = 0;
+        keys = await getGoogleKeys();
+        jwk = keys.keys.find(function (key) { return key.kid === header.kid && key.kty === "RSA"; });
+    }
+    if (!jwk) throw new Error("Google sign-in failed. Try again.");
+    const publicKey = crypto.createPublicKey({ key: jwk, format: "jwk" });
+    const validSignature = crypto.verify("RSA-SHA256", Buffer.from(parts[0] + "." + parts[1]), publicKey, Buffer.from(parts[2], "base64url"));
+    const issuerOk = ["accounts.google.com", "https://accounts.google.com"].includes(claims.iss);
+    if (!validSignature || !issuerOk || claims.aud !== process.env.GOOGLE_CLIENT_ID || claims.exp * 1000 <= Date.now() || !claims.email_verified || !claims.email) {
+        throw new Error("Google sign-in failed. Try again.");
+    }
+    return { googleId: claims.sub, email: normalizeEmail(claims.email), name: String(claims.name || claims.email).slice(0, 100) };
+}
+
+async function publicUser(user) {
+    return { id: String(user._id), name: user.name, email: user.email };
+}
+
+async function currentUser(req) {
+    const id = verifySession(req.cookies && req.cookies[SESSION_COOKIE]);
+    if (!id) return null;
+    const { ObjectId } = require("mongodb");
+    if (!ObjectId.isValid(id)) return null;
+    const user = await (await getUsers()).findOne({ _id: new ObjectId(id) }, { projection: { name: 1, email: 1 } });
+    return user ? publicUser(user) : null;
+}
+
+module.exports = { getUsers, normalizeEmail, hashPassword, verifyPassword, setSession, SESSION_COOKIE, sessionCookieOptions, verifyGoogleCredential, publicUser, currentUser };

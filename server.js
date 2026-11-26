@@ -5,16 +5,29 @@ require("dotenv").config();
 const express = require("express");
 const path = require("path");
 const productRoutes = require("./routes/products");
+const authRoutes = require("./routes/auth");
 
 const app = express();
 
-app.use(express.json());
+app.use(express.json({ limit: "16kb" }));
+app.use(function (req, res, next) {
+    req.cookies = {};
+    const header = req.headers.cookie || "";
+    header.split(";").forEach(function (part) {
+        const index = part.indexOf("=");
+        if (index < 0) return;
+        const key = part.slice(0, index).trim();
+        try { req.cookies[key] = decodeURIComponent(part.slice(index + 1).trim()); } catch (_) { /* Ignore malformed cookies. */ }
+    });
+    next();
+});
 
 // Serve the website (the HTML, CSS and JS in /public)
 app.use(express.static(path.join(__dirname, "public")));
 
 // API routes
 app.use("/api/products", productRoutes);
+app.use("/api/auth", authRoutes);
 
 // Unknown /api addresses
 app.use("/api", function (req, res) {

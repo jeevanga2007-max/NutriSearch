@@ -1140,6 +1140,22 @@ main {
     margin-top: -6px;
 }
 
+.auth-message {
+    padding: 9px 10px;
+    border: 1px solid #f3b7b7;
+    border-radius: 7px;
+    background: #fff4f4;
+    color: #9b2222;
+    font-size: 10px;
+    line-height: 1.5;
+}
+
+.google-signin {
+    min-height: 40px;
+    display: flex;
+    justify-content: center;
+}
+
 
 /* =========================
    PROFILE PAGE

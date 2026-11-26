@@ -275,11 +275,58 @@ if (productLayout) {
 
 const loginForm = document.getElementById("loginForm");
 const signupForm = document.getElementById("signupForm");
+const authMessage = document.getElementById("authMessage");
+
+async function authRequest(url, body) {
+    const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify(body)
+    });
+    const data = await response.json().catch(function () { return {}; });
+    if (!response.ok) throw new Error(data.error || "Authentication failed. Please try again.");
+    return data;
+}
+
+function showAuthError(message) {
+    if (!authMessage) return;
+    authMessage.textContent = message;
+    authMessage.hidden = false;
+}
+
+if (loginForm || signupForm) {
+    const googleContainer = document.getElementById("googleSignIn");
+    fetch("/api/auth/config", { cache: "no-store" }).then(function (response) { return response.json(); }).then(function (config) {
+        if (!googleContainer || !config.googleClientId) return;
+        const googleScript = document.createElement("script");
+        googleScript.src = "https://accounts.google.com/gsi/client";
+        googleScript.async = true;
+        googleScript.defer = true;
+        googleScript.onload = function () {
+            window.google.accounts.id.initialize({
+                client_id: config.googleClientId,
+                callback: async function (response) {
+                    try {
+                        await authRequest("/api/auth/google", { credential: response.credential });
+                        window.location.href = "profile.html";
+                    } catch (error) { showAuthError(error.message); }
+                }
+            });
+            window.google.accounts.id.renderButton(googleContainer, { theme: "outline", size: "large", text: "continue_with", shape: "rectangular", width: Math.min(360, googleContainer.clientWidth || 360) });
+        };
+        googleScript.onerror = function () { showAuthError("Google sign-in could not load. Please try again."); };
+        document.head.appendChild(googleScript);
+    }).catch(function () { showAuthError("Could not load sign-in settings."); });
+}
 
 if (loginForm) {
     loginForm.addEventListener("submit", function (event) {
         event.preventDefault();
-        window.location.href = "profile.html";
+        authRequest("/api/auth/login", {
+            email: document.getElementById("email").value,
+            password: document.getElementById("password").value
+        }).then(function () { window.location.href = "profile.html"; }).catch(function (error) { showAuthError(error.message); });
     });
 }
 
@@ -295,8 +342,29 @@ if (signupForm) {
             return;
         }
 
-        window.location.href = "profile.html";
+        authRequest("/api/auth/signup", {
+            name: document.getElementById("name").value,
+            email: document.getElementById("email").value,
+            password: password
+        }).then(function () { window.location.href = "profile.html"; }).catch(function (error) { showAuthError(error.message); });
     });
+}
+
+const profile = document.getElementById("profile");
+if (profile) {
+    getFromServer("/api/auth/me").then(function (data) {
+        document.querySelector(".profile-id h1").textContent = data.user.name;
+        document.querySelector(".profile-id p").textContent = data.user.email;
+        document.querySelector(".profile-avatar").textContent = data.user.name.charAt(0).toUpperCase();
+        const loginLink = document.querySelector(".navbar .login-btn");
+        loginLink.textContent = "Log out";
+        loginLink.href = "#logout";
+        loginLink.addEventListener("click", async function (event) {
+            event.preventDefault();
+            await fetch("/api/auth/logout", { method: "POST" });
+            window.location.href = "index.html";
+        });
+    }).catch(function () { window.location.href = "login.html"; });
 }
 
 // Show / hide password (login, signup and profile)
