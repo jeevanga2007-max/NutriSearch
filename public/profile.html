@@ -102,7 +102,7 @@
                     </div>
 
                     <div class="option-row">
-                        <div class="option-group" data-select="single">
+                        <div class="option-group" data-select="single" data-profile-field="activityLevel">
                             <span class="group-label">Activity level</span>
                             <div class="option-list">
                                 <button type="button" class="option-chip">Sedentary</button>
@@ -112,7 +112,7 @@
                             </div>
                         </div>
 
-                        <div class="option-group" data-select="single">
+                        <div class="option-group" data-select="single" data-profile-field="goal">
                             <span class="group-label">Your goal</span>
                             <div class="option-list">
                                 <button type="button" class="option-chip">Lose weight</button>
@@ -124,7 +124,7 @@
                     </div>
 
                     <div class="option-row">
-                        <div class="option-group" data-select="single">
+                        <div class="option-group" data-select="single" data-profile-field="diet">
                             <span class="group-label">Diet</span>
                             <div class="option-list">
                                 <button type="button" class="option-chip active">Vegetarian</button>
@@ -134,7 +134,7 @@
                             </div>
                         </div>
 
-                        <div class="option-group" data-select="multi">
+                        <div class="option-group" data-select="multi" data-profile-field="focusOn">
                             <span class="group-label">Focus on</span>
                             <div class="option-list">
                                 <button type="button" class="option-chip active">Low sugar</button>
@@ -145,7 +145,7 @@
                         </div>
                     </div>
 
-                    <div class="option-group" data-select="multi">
+                    <div class="option-group" data-select="multi" data-profile-field="allergies">
                         <span class="group-label">Allergies / ingredients to avoid</span>
                         <div class="option-list">
                             <button type="button" class="option-chip active">Peanuts</button>
@@ -160,15 +160,16 @@
                     <div class="targets-box">
                         <div class="targets-head">✨ Your estimated daily targets</div>
                         <div class="targets-row">
-                            <div><span>Calories</span><strong>2,300 kcal</strong></div>
-                            <div><span>Protein</span><strong>82 g</strong></div>
-                            <div><span>Sugar limit</span><strong>50 g</strong></div>
-                            <div><span>Sodium limit</span><strong>2,000 mg</strong></div>
+                            <div><span>Calories</span><strong id="targetCalories">2,300 kcal</strong></div>
+                            <div><span>Protein</span><strong id="targetProtein">82 g</strong></div>
+                            <div><span>Sugar limit</span><strong id="targetSugar">50 g</strong></div>
+                            <div><span>Sodium limit</span><strong id="targetSodium">2,000 mg</strong></div>
                         </div>
                     </div>
 
+                    <p id="profileMessage" class="auth-message" role="alert" hidden></p>
                     <div class="form-footer">
-                        <button type="button" class="btn-primary">Save profile</button>
+                        <button type="button" class="btn-primary" id="saveProfileBtn">Save profile</button>
                         <small>General guidance only, not medical advice.</small>
                     </div>
 

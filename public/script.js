@@ -5,6 +5,48 @@
 
 
 /* =========================
+   0. THEME (Light / Dark)
+========================= */
+
+const THEME_STORAGE_KEY = "nutrisearch_theme";
+
+function getPreferredTheme() {
+    const saved = localStorage.getItem(THEME_STORAGE_KEY);
+    if (saved === "light" || saved === "dark") return saved;
+    return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function applyTheme(theme) {
+    document.documentElement.dataset.theme = theme;
+    const toggleBtn = document.querySelector(".theme-toggle");
+    if (toggleBtn) {
+        const isDark = theme === "dark";
+        toggleBtn.textContent = isDark ? "☀️ Light" : "🌙 Dark";
+        toggleBtn.setAttribute("aria-pressed", String(isDark));
+        toggleBtn.setAttribute("aria-label", isDark ? "Switch to light theme" : "Switch to dark theme");
+    }
+}
+
+applyTheme(getPreferredTheme());
+
+(function initThemeToggle() {
+    const navLinks = document.querySelector(".navbar .nav-links");
+    if (!navLinks || navLinks.querySelector(".theme-toggle")) return;
+    const toggleBtn = document.createElement("button");
+    toggleBtn.type = "button";
+    toggleBtn.className = "theme-toggle";
+    const loginBtn = navLinks.querySelector(".login-btn");
+    navLinks.insertBefore(toggleBtn, loginBtn || null);
+    applyTheme(document.documentElement.dataset.theme || "light");
+    toggleBtn.addEventListener("click", function () {
+        const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+        localStorage.setItem(THEME_STORAGE_KEY, next);
+        applyTheme(next);
+    });
+})();
+
+
+/* =========================
    1. SEARCH (index.html + results.html)
 ========================= */
 
@@ -296,18 +338,14 @@ async function authRequest(url, body, method) {
 
 function showAuthError(message) {
     if (!authMessage) return;
-    authMessage.style.background = "";
-    authMessage.style.borderColor = "";
-    authMessage.style.color = "";
+    authMessage.classList.remove("is-success");
     authMessage.textContent = message;
     authMessage.hidden = false;
 }
 
 function showAuthSuccess(message) {
     if (!authMessage) return;
-    authMessage.style.background = "#effaf1";
-    authMessage.style.borderColor = "#a8dfb4";
-    authMessage.style.color = "#1c6b2d";
+    authMessage.classList.add("is-success");
     authMessage.textContent = message;
     authMessage.hidden = false;
 }
@@ -484,6 +522,71 @@ if (resetPasswordForm) {
 }
 
 const profile = document.getElementById("profile");
+
+function readProfileForm() {
+    const data = {
+        age: Number(document.getElementById("age").value),
+        sex: document.getElementById("sex").value,
+        height: Number(document.getElementById("height").value),
+        weight: Number(document.getElementById("weight").value)
+    };
+    document.querySelectorAll(".option-group[data-profile-field]").forEach(function (group) {
+        const field = group.dataset.profileField;
+        const activeTexts = Array.from(group.querySelectorAll(".option-chip.active")).map(function (c) {
+            return c.textContent.trim();
+        });
+        data[field] = group.dataset.select === "single" ? (activeTexts[0] || "") : activeTexts;
+    });
+    return data;
+}
+
+function updateDailyTargets(p) {
+    const caloriesEl = document.getElementById("targetCalories");
+    const proteinEl = document.getElementById("targetProtein");
+    const sugarEl = document.getElementById("targetSugar");
+    const sodiumEl = document.getElementById("targetSodium");
+    if (!caloriesEl || !p) return;
+
+    const age = Number(p.age) || 25;
+    const height = Number(p.height) || 170;
+    const weight = Number(p.weight) || 65;
+    const sexOffset = p.sex === "Female" ? -161 : p.sex === "Male" ? 5 : -78;
+    const bmr = 10 * weight + 6.25 * height - 5 * age + sexOffset;
+    const activityMap = { "Sedentary": 1.2, "Lightly active": 1.375, "Moderately active": 1.55, "Very active": 1.725 };
+    const goalOffset = p.goal === "Lose weight" ? -400 : p.goal === "Build muscle" ? 250 : 0;
+    const calories = Math.max(1200, Math.round((bmr * (activityMap[p.activityLevel] || 1.55) + goalOffset) / 50) * 50);
+
+    const focus = Array.isArray(p.focusOn) ? p.focusOn : [];
+    const proteinFactor = (p.goal === "Build muscle" || focus.includes("High protein")) ? 1.6 : 1.0;
+    const protein = Math.round(weight * proteinFactor);
+    const sugar = focus.includes("Low sugar") ? 30 : Math.round((calories * 0.1) / 4);
+    const sodium = focus.includes("Low sodium") ? 1500 : 2000;
+
+    caloriesEl.textContent = calories.toLocaleString() + " kcal";
+    proteinEl.textContent = protein + " g";
+    sugarEl.textContent = sugar + " g";
+    sodiumEl.textContent = sodium.toLocaleString() + " mg";
+}
+
+function applyProfileForm(p) {
+    if (!p) return;
+    if (p.age !== undefined) document.getElementById("age").value = p.age;
+    if (p.sex !== undefined) document.getElementById("sex").value = p.sex;
+    if (p.height !== undefined) document.getElementById("height").value = p.height;
+    if (p.weight !== undefined) document.getElementById("weight").value = p.weight;
+
+    document.querySelectorAll(".option-group[data-profile-field]").forEach(function (group) {
+        const field = group.dataset.profileField;
+        if (p[field] === undefined) return;
+        const selected = Array.isArray(p[field]) ? p[field] : [p[field]];
+        group.querySelectorAll(".option-chip").forEach(function (chip) {
+            chip.classList.toggle("active", selected.includes(chip.textContent.trim()));
+        });
+    });
+
+    updateDailyTargets(p);
+}
+
 if (profile) {
     getFromServer("/api/auth/me").then(function (data) {
         document.querySelector(".profile-id h1").textContent = data.user.name;
@@ -494,6 +597,12 @@ if (profile) {
         const accEmail = document.getElementById("accEmail");
         if (accName) accName.value = data.user.name;
         if (accEmail) accEmail.value = data.user.email;
+
+        if (data.user.profile) {
+            applyProfileForm(data.user.profile);
+        } else {
+            updateDailyTargets(readProfileForm());
+        }
 
         const loginLink = document.querySelector(".navbar .login-btn");
         if (loginLink) {
@@ -552,9 +661,47 @@ document.querySelectorAll(".option-group").forEach(function (group) {
             } else {
                 chip.classList.toggle("active");
             }
+            if (profile) updateDailyTargets(readProfileForm());
         });
     });
 });
+
+if (profile) {
+    ["age", "sex", "height", "weight"].forEach(function (id) {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener("change", function () { updateDailyTargets(readProfileForm()); });
+    });
+}
+
+const saveProfileBtn = document.getElementById("saveProfileBtn");
+const profileMessage = document.getElementById("profileMessage");
+
+function showProfileMessage(message, isSuccess) {
+    if (!profileMessage) return;
+    profileMessage.textContent = message;
+    profileMessage.classList.toggle("is-success", Boolean(isSuccess));
+    profileMessage.hidden = false;
+}
+
+if (saveProfileBtn) {
+    saveProfileBtn.addEventListener("click", async function () {
+        if (profileMessage) profileMessage.hidden = true;
+        saveProfileBtn.disabled = true;
+        const originalText = saveProfileBtn.textContent;
+        saveProfileBtn.textContent = "Saving...";
+        try {
+            const profileData = readProfileForm();
+            const data = await authRequest("/api/auth/me", { profile: profileData }, "PATCH");
+            applyProfileForm(data.user.profile);
+            showProfileMessage("Profile preferences saved.", true);
+        } catch (error) {
+            showProfileMessage(error.message, false);
+        } finally {
+            saveProfileBtn.disabled = false;
+            saveProfileBtn.textContent = originalText;
+        }
+    });
+}
 
 const saveAccountBtn = document.getElementById("saveAccountBtn");
 const accountMessage = document.getElementById("accountMessage");
@@ -562,9 +709,7 @@ const accountMessage = document.getElementById("accountMessage");
 function showAccountMessage(message, isSuccess) {
     if (!accountMessage) return;
     accountMessage.textContent = message;
-    accountMessage.style.background = isSuccess ? "#effaf1" : "";
-    accountMessage.style.borderColor = isSuccess ? "#a8dfb4" : "";
-    accountMessage.style.color = isSuccess ? "#1c6b2d" : "";
+    accountMessage.classList.toggle("is-success", Boolean(isSuccess));
     accountMessage.hidden = false;
 }
 

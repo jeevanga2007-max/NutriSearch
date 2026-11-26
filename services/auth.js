@@ -150,7 +150,8 @@ async function publicUser(user) {
         id: String(user._id),
         name: user.name,
         email: user.email,
-        authProviders: Array.isArray(user.authProviders) ? user.authProviders : []
+        authProviders: Array.isArray(user.authProviders) ? user.authProviders : [],
+        profile: user.profile || null
     };
 }
 
@@ -159,7 +160,7 @@ async function currentUser(req) {
     if (!id) return null;
     const { ObjectId } = require("mongodb");
     if (!ObjectId.isValid(id)) return null;
-    const user = await (await getUsers()).findOne({ _id: new ObjectId(id) }, { projection: { name: 1, email: 1, authProviders: 1 } });
+    const user = await (await getUsers()).findOne({ _id: new ObjectId(id) }, { projection: { name: 1, email: 1, authProviders: 1, profile: 1 } });
     return user ? publicUser(user) : null;
 }
 

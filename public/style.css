@@ -1,16 +1,94 @@
 /* =========================
-   GLOBAL STYLES
+   DESIGN SYSTEM TOKENS
 ========================= */
 
 :root {
-    --primary-green: #2e7d32;
-    --dark-green: #17271e;
-    --light-green: #e8f3e8;
-    --page-background: #f5f7f3;
-    --white: #ffffff;
-    --text-primary: #17271e;
-    --text-secondary: #708075;
-    --border-color: #e1e8df;
+    color-scheme: light;
+
+    /* Core surfaces */
+    --bg-page: #F5F8F4;
+    --bg-navbar: #FFFFFF;
+    --bg-card: #FFFFFF;
+    --bg-surface-secondary: #EDF3EC;
+
+    /* Brand & interaction */
+    --primary: #238B50;
+    --primary-hover: #196F3D;
+    --accent: #238B50;
+    --on-primary: #FFFFFF;
+
+    /* Typography & borders */
+    --text-primary: #17251E;
+    --text-secondary: #66766B;
+    --border-color: #DCE7DD;
+
+    /* Ingredient classification */
+    --status-healthy: #238B50;
+    --status-healthy-bg: #E8F4ED;
+    --status-moderate: #D9A441;
+    --status-moderate-bg: #FDF5E6;
+    --status-unhealthy: #DC5555;
+    --status-unhealthy-bg: #FDECEC;
+    --status-unknown: #82918A;
+    --status-unknown-bg: #EEF2EF;
+
+    /* Elevation & radii */
+    --shadow-sm: 0 2px 8px rgba(23, 37, 30, 0.05);
+    --shadow-md: 0 6px 18px rgba(23, 37, 30, 0.07);
+    --focus-ring: 0 0 0 3px rgba(35, 139, 80, 0.16);
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+
+    /* Semantic aliases for existing components */
+    --primary-green: var(--primary);
+    --dark-green: var(--text-primary);
+    --light-green: var(--bg-surface-secondary);
+    --page-background: var(--bg-page);
+    --white: var(--bg-card);
+}
+
+[data-theme="dark"] {
+    color-scheme: dark;
+
+    /* Core surfaces */
+    --bg-page: #101A16;
+    --bg-navbar: #17251E;
+    --bg-card: #192720;
+    --bg-surface-secondary: #213329;
+
+    /* Brand & interaction */
+    --primary: #238B50;
+    --primary-hover: #2FA861;
+    --accent: #A3D9A5;
+    --on-primary: #FFFFFF;
+
+    /* Typography & borders */
+    --text-primary: #F1F5EF;
+    --text-secondary: #A4B5A9;
+    --border-color: #2B4033;
+
+    /* Ingredient classification */
+    --status-healthy: #238B50;
+    --status-healthy-bg: #1B3426;
+    --status-moderate: #D9A441;
+    --status-moderate-bg: #332915;
+    --status-unhealthy: #DC5555;
+    --status-unhealthy-bg: #361C1C;
+    --status-unknown: #82918A;
+    --status-unknown-bg: #222F29;
+
+    /* Elevation & radii */
+    --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 8px 22px rgba(0, 0, 0, 0.38);
+    --focus-ring: 0 0 0 3px rgba(47, 168, 97, 0.25);
+
+    /* Semantic aliases */
+    --primary-green: var(--primary);
+    --dark-green: var(--text-primary);
+    --light-green: var(--bg-surface-secondary);
+    --page-background: var(--bg-page);
+    --white: var(--bg-card);
 }
 
 * {
@@ -52,12 +130,13 @@ input {
 
 .navbar {
     height: 60px;
-    background-color: var(--white);
+    background-color: var(--bg-navbar);
+    border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 0 47px;
-    box-shadow: 0 2px 8px rgba(25, 45, 30, 0.04);
+    box-shadow: var(--shadow-sm);
 }
 
 .logo {
@@ -66,7 +145,7 @@ input {
     gap: 8px;
     font-size: 14px;
     font-weight: 800;
-    color: var(--dark-green);
+    color: var(--text-primary);
 }
 
 .nav-links {
@@ -78,18 +157,18 @@ input {
 .nav-links a {
     font-size: 10px;
     font-weight: 500;
-    color: #637166;
+    color: var(--text-secondary);
     transition: color 0.2s ease;
 }
 
 .nav-links a:hover,
 .nav-links a.active {
-    color: var(--dark-green);
+    color: var(--text-primary);
 }
 
 .nav-links .login-btn {
-    background-color: var(--primary-green);
-    color: var(--white);
+    background-color: var(--primary);
+    color: var(--on-primary);
     padding: 10px 16px;
     border-radius: 9px;
     font-weight: 600;
@@ -97,8 +176,8 @@ input {
 }
 
 .nav-links .login-btn:hover {
-    background-color: #256529;
-    color: var(--white);
+    background-color: var(--primary-hover);
+    color: var(--on-primary);
 }
 
 
@@ -131,8 +210,9 @@ main {
     align-items: center;
     gap: 5px;
     padding: 5px 9px;
-    background-color: #eaf4e9;
-    color: var(--primary-green);
+    background-color: var(--bg-surface-secondary);
+    color: var(--accent);
+    border: 1px solid var(--border-color);
     border-radius: 20px;
     font-size: 9px;
     font-weight: 600;
@@ -145,7 +225,7 @@ main {
     align-items: center;
     width: 12px;
     height: 12px;
-    border: 1px solid var(--primary-green);
+    border: 1px solid var(--accent);
     border-radius: 50%;
     font-size: 8px;
 }
@@ -1768,4 +1848,169 @@ main {
 
 .add-link a:hover {
     text-decoration: underline;
+}
+
+/* =========================
+   THEME TOGGLE & DESIGN OVERRIDES
+========================= */
+
+.theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-surface-secondary);
+    color: var(--text-primary);
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.theme-toggle:hover {
+    border-color: var(--primary);
+    color: var(--accent);
+}
+
+.btn-primary,
+.search-form button,
+.filter-chip.active,
+.option-chip.active,
+.nutri-badge,
+.auth-brand {
+    color: var(--on-primary);
+}
+
+.btn-primary:hover,
+.search-form button:hover {
+    background-color: var(--primary-hover);
+    border-color: var(--primary-hover);
+}
+
+.btn-outline:hover {
+    background-color: var(--bg-surface-secondary);
+    border-color: var(--primary);
+    color: var(--accent);
+}
+
+.link-green {
+    color: var(--accent);
+}
+
+.search-form,
+.feature-card,
+.product-card,
+.auth-card,
+.stat-card,
+.personalise-card,
+.account-card,
+.saved-card,
+.detail-card {
+    border-color: var(--border-color);
+    box-shadow: var(--shadow-sm);
+}
+
+.feature-card:hover,
+.product-card:hover {
+    box-shadow: var(--shadow-md);
+}
+
+.search-form:focus-within,
+.input-box:focus-within {
+    border-color: var(--primary);
+    box-shadow: var(--focus-ring);
+}
+
+.suggestion-chip,
+.filter-chip,
+.input-box {
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+.suggestion-chip:hover,
+.filter-chip:hover {
+    border-color: var(--primary);
+    color: var(--accent);
+}
+
+.input-box input,
+.input-box select {
+    color: var(--text-primary);
+    background-color: transparent;
+}
+
+.ai-box {
+    background-color: var(--bg-surface-secondary);
+    border-color: var(--border-color);
+}
+
+.ai-head,
+.targets-head {
+    color: var(--accent);
+}
+
+/* Ingredient Classification Colours */
+.tag-good {
+    background-color: var(--status-healthy-bg);
+    border-color: var(--status-healthy);
+    color: var(--accent);
+}
+
+.tag-warn {
+    background-color: var(--status-moderate-bg);
+    border-color: var(--status-moderate);
+    color: var(--status-moderate);
+}
+
+.tag-unhealthy {
+    background-color: var(--status-unhealthy-bg);
+    border-color: var(--status-unhealthy);
+    color: var(--status-unhealthy);
+}
+
+.nutri-unknown {
+    background-color: var(--status-unknown);
+    color: var(--on-primary);
+}
+
+.nutri-a {
+    background-color: var(--status-healthy);
+}
+
+.nutri-c {
+    background-color: var(--status-moderate);
+    color: #17251E;
+}
+
+.nutri-e {
+    background-color: var(--status-unhealthy);
+}
+
+.btn-danger {
+    border-color: var(--status-unhealthy);
+    color: var(--status-unhealthy);
+}
+
+.btn-danger:hover {
+    background-color: var(--status-unhealthy-bg);
+}
+
+.auth-message {
+    background: var(--status-unhealthy-bg);
+    border-color: var(--status-unhealthy);
+    color: var(--status-unhealthy);
+}
+
+.auth-message.is-success {
+    background: var(--status-healthy-bg);
+    border-color: var(--status-healthy);
+    color: var(--accent);
+}
+
+[data-theme="dark"] .targets-box {
+    background-color: var(--bg-surface-secondary);
+    border: 1px solid var(--border-color);
 }
