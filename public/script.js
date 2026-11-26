@@ -5,6 +5,48 @@
 
 
 /* =========================
+   0. THEME (Light / Dark)
+========================= */
+
+const THEME_STORAGE_KEY = "nutrisearch_theme";
+
+function getPreferredTheme() {
+    const saved = localStorage.getItem(THEME_STORAGE_KEY);
+    if (saved === "light" || saved === "dark") return saved;
+    return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function applyTheme(theme) {
+    document.documentElement.dataset.theme = theme;
+    const toggleBtn = document.querySelector(".theme-toggle");
+    if (toggleBtn) {
+        const isDark = theme === "dark";
+        toggleBtn.textContent = isDark ? "☀️ Light" : "🌙 Dark";
+        toggleBtn.setAttribute("aria-pressed", String(isDark));
+        toggleBtn.setAttribute("aria-label", isDark ? "Switch to light theme" : "Switch to dark theme");
+    }
+}
+
+applyTheme(getPreferredTheme());
+
+(function initThemeToggle() {
+    const navLinks = document.querySelector(".navbar .nav-links");
+    if (!navLinks || navLinks.querySelector(".theme-toggle")) return;
+    const toggleBtn = document.createElement("button");
+    toggleBtn.type = "button";
+    toggleBtn.className = "theme-toggle";
+    const loginBtn = navLinks.querySelector(".login-btn");
+    navLinks.insertBefore(toggleBtn, loginBtn || null);
+    applyTheme(document.documentElement.dataset.theme || "light");
+    toggleBtn.addEventListener("click", function () {
+        const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+        localStorage.setItem(THEME_STORAGE_KEY, next);
+        applyTheme(next);
+    });
+})();
+
+
+/* =========================
    1. SEARCH (index.html + results.html)
 ========================= */
 

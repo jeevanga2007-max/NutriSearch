@@ -13,6 +13,18 @@
     --border-color: #e1e8df;
 }
 
+[data-theme="dark"] {
+    color-scheme: dark;
+    --primary-green: #388e3c;
+    --dark-green: #e7f0e8;
+    --light-green: #1d3123;
+    --page-background: #0f1612;
+    --white: #17211b;
+    --text-primary: #e7f0e8;
+    --text-secondary: #98a89d;
+    --border-color: #27372d;
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -1768,4 +1780,125 @@ main {
 
 .add-link a:hover {
     text-decoration: underline;
+}
+
+/* =========================
+   THEME TOGGLE & DARK MODE
+========================= */
+
+.theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 10px;
+    border-radius: 9px;
+    border: 1px solid var(--border-color);
+    background-color: var(--page-background);
+    color: var(--text-primary);
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.theme-toggle:hover {
+    border-color: var(--primary-green);
+}
+
+[data-theme="dark"] .navbar {
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="dark"] .nav-links a {
+    color: var(--text-secondary);
+}
+
+[data-theme="dark"] .nav-links a:hover,
+[data-theme="dark"] .nav-links a.active {
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .nav-links .login-btn,
+[data-theme="dark"] .nav-links .login-btn:hover,
+[data-theme="dark"] .btn-primary,
+[data-theme="dark"] .search-form button,
+[data-theme="dark"] .filter-chip.active,
+[data-theme="dark"] .option-chip.active,
+[data-theme="dark"] .nutri-badge,
+[data-theme="dark"] .auth-brand {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .nutri-c {
+    color: #17271e;
+}
+
+[data-theme="dark"] .badge {
+    background-color: var(--light-green);
+    color: #81c784;
+}
+
+[data-theme="dark"] .search-form,
+[data-theme="dark"] .feature-card,
+[data-theme="dark"] .product-card,
+[data-theme="dark"] .auth-card,
+[data-theme="dark"] .stat-card,
+[data-theme="dark"] .personalise-card,
+[data-theme="dark"] .account-card,
+[data-theme="dark"] .saved-card {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .search-form,
+[data-theme="dark"] .suggestion-chip,
+[data-theme="dark"] .filter-chip,
+[data-theme="dark"] .input-box {
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .suggestion-chip,
+[data-theme="dark"] .filter-chip {
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .input-box input,
+[data-theme="dark"] .input-box select {
+    color: var(--text-primary);
+    background-color: transparent;
+}
+
+[data-theme="dark"] .ai-box {
+    border-color: #2b4734;
+}
+
+[data-theme="dark"] .ai-head,
+[data-theme="dark"] .tag-good,
+[data-theme="dark"] .link-green,
+[data-theme="dark"] .targets-head {
+    color: #81c784;
+}
+
+[data-theme="dark"] .tag-good {
+    border-color: #4caf50;
+}
+
+[data-theme="dark"] .tag-warn {
+    background-color: #3a2b10;
+    border-color: #5c4316;
+    color: #fcd34d;
+}
+
+[data-theme="dark"] .btn-danger {
+    border-color: #ef4444;
+    color: #fca5a5;
+}
+
+[data-theme="dark"] .btn-danger:hover {
+    background-color: #3b1717;
+}
+
+[data-theme="dark"] .auth-message {
+    background: #331919;
+    border-color: #6b2b2b;
+    color: #fca5a5;
 }
