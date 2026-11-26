@@ -38,6 +38,39 @@ function validatePassword(rawPassword) {
     return { value: password };
 }
 
+function sanitizeProfile(raw) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+        return { error: "Invalid profile data." };
+    }
+    const age = Number(raw.age);
+    const height = Number(raw.height);
+    const weight = Number(raw.weight);
+    if (!Number.isFinite(age) || age < 1 || age > 120) return { error: "Age must be between 1 and 120." };
+    if (!Number.isFinite(height) || height < 50 || height > 260) return { error: "Height must be between 50 and 260 cm." };
+    if (!Number.isFinite(weight) || weight < 15 || weight > 350) return { error: "Weight must be between 15 and 350 kg." };
+
+    const sex = ["Male", "Female", "Other"].includes(raw.sex) ? raw.sex : "Other";
+    const cleanText = function (val) { return String(val || "").trim().slice(0, 50); };
+    const cleanList = function (arr) {
+        if (!Array.isArray(arr)) return [];
+        return Array.from(new Set(arr.map(cleanText).filter(Boolean))).slice(0, 20);
+    };
+
+    return {
+        value: {
+            age: Math.round(age),
+            sex,
+            height: Math.round(height),
+            weight: Math.round(weight * 10) / 10,
+            activityLevel: cleanText(raw.activityLevel),
+            goal: cleanText(raw.goal),
+            diet: cleanText(raw.diet),
+            focusOn: cleanList(raw.focusOn),
+            allergies: cleanList(raw.allergies)
+        }
+    };
+}
+
 router.post("/signup", async function (req, res) {
     const nameCheck = validateName(req.body.name);
     if (nameCheck.error) return res.status(400).json({ error: nameCheck.error });
@@ -135,6 +168,11 @@ router.patch("/me", async function (req, res) {
             updates.passwordHash = await hashPassword(passwordCheck.value);
             addProviders.push("password");
         }
+        if (req.body.profile !== undefined) {
+            const profileCheck = sanitizeProfile(req.body.profile);
+            if (profileCheck.error) return res.status(400).json({ error: profileCheck.error });
+            updates.profile = profileCheck.value;
+        }
 
         if (Object.keys(updates).length === 0) {
             return res.status(400).json({ error: "No changes provided." });
@@ -146,7 +184,7 @@ router.patch("/me", async function (req, res) {
         if (addProviders.length > 0) updateDoc.$addToSet = { authProviders: { $each: addProviders } };
 
         await users.updateOne({ _id: new ObjectId(user.id) }, updateDoc);
-        const updated = await users.findOne({ _id: new ObjectId(user.id) }, { projection: { name: 1, email: 1, authProviders: 1 } });
+        const updated = await users.findOne({ _id: new ObjectId(user.id) }, { projection: { name: 1, email: 1, authProviders: 1, profile: 1 } });
         res.json({ user: await publicUser(updated) });
     } catch (error) { authError(res, error); }
 });

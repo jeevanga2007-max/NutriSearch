@@ -251,3 +251,51 @@ test("forgot-password and reset-password flow updates password and invalidates t
     });
     assert.strictEqual(loginRes.status, 200);
 });
+
+test("personalized profile details persist across logout and next login", async function () {
+    const loginRes = await fetch(base + "/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: "alice@example.com", password: "newpassword123" })
+    });
+    assert.strictEqual(loginRes.status, 200);
+    const cookie = loginRes.headers.get("set-cookie").split(";")[0];
+
+    const customProfile = {
+        age: 29,
+        sex: "Female",
+        height: 164,
+        weight: 58.5,
+        activityLevel: "Very active",
+        goal: "Lose weight",
+        diet: "Vegan",
+        focusOn: ["Low sugar", "Low sodium"],
+        allergies: ["Dairy", "Soy"]
+    };
+
+    const saveRes = await fetch(base + "/api/auth/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Cookie: cookie },
+        body: JSON.stringify({ profile: customProfile })
+    });
+    assert.strictEqual(saveRes.status, 200);
+    const saveBody = await saveRes.json();
+    assert.deepStrictEqual(saveBody.user.profile, customProfile);
+
+    await fetch(base + "/api/auth/logout", { method: "POST" });
+
+    // Log in again and verify exact profile details are returned
+    const nextLoginRes = await fetch(base + "/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: "alice@example.com", password: "newpassword123" })
+    });
+    assert.strictEqual(nextLoginRes.status, 200);
+    const nextBody = await nextLoginRes.json();
+    assert.deepStrictEqual(nextBody.user.profile, customProfile);
+
+    const nextCookie = nextLoginRes.headers.get("set-cookie").split(";")[0];
+    const meRes = await fetch(base + "/api/auth/me", { headers: { Cookie: nextCookie } });
+    assert.strictEqual(meRes.status, 200);
+    assert.deepStrictEqual((await meRes.json()).user.profile, customProfile);
+});
