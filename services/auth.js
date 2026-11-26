@@ -26,6 +26,52 @@ function getUsers() {
 
 function normalizeEmail(email) { return String(email || "").trim().toLowerCase(); }
 
+function hashResetToken(token) {
+    return crypto.createHash("sha256").update(String(token || "")).digest("hex");
+}
+
+async function sendPasswordResetEmail(toEmail, userName, resetUrl) {
+    const smtpUser = String(process.env.SMTP_USER || "").trim();
+    const smtpPass = process.env.SMTP_HOST
+        ? String(process.env.SMTP_PASS || "")
+        : String(process.env.SMTP_PASS || "").replace(/\s+/g, "");
+
+    if (!smtpUser || !smtpPass) {
+        console.log("Password reset link for " + toEmail + ": " + resetUrl);
+        return { emailed: false };
+    }
+
+    const nodemailer = require("nodemailer");
+    const transportConfig = process.env.SMTP_HOST
+        ? {
+            host: process.env.SMTP_HOST,
+            port: Number(process.env.SMTP_PORT || 587),
+            secure: process.env.SMTP_SECURE === "true",
+            auth: { user: smtpUser, pass: smtpPass }
+        }
+        : {
+            service: "gmail",
+            auth: { user: smtpUser, pass: smtpPass }
+        };
+
+    const transporter = nodemailer.createTransport(transportConfig);
+    try {
+        await transporter.sendMail({
+            from: process.env.SMTP_FROM || smtpUser,
+            to: toEmail,
+            subject: "Reset your NutriSearch password",
+            text: "Hi " + (userName || "there") + ",\n\nReset your NutriSearch password using this link (valid for 15 minutes):\n" + resetUrl + "\n\nIf you did not request this, you can ignore this email."
+        });
+        return { emailed: true };
+    } catch (error) {
+        if (error && error.code === "EAUTH" && process.env.NODE_ENV !== "production") {
+            console.warn("SMTP authentication failed (EAUTH); falling back to local reset link:", resetUrl);
+            return { emailed: false, smtpError: true };
+        }
+        throw error;
+    }
+}
+
 async function hashPassword(password) {
     const salt = crypto.randomBytes(16).toString("hex");
     const key = await scrypt(password, salt, 64);
@@ -100,7 +146,12 @@ async function verifyGoogleCredential(token) {
 }
 
 async function publicUser(user) {
-    return { id: String(user._id), name: user.name, email: user.email };
+    return {
+        id: String(user._id),
+        name: user.name,
+        email: user.email,
+        authProviders: Array.isArray(user.authProviders) ? user.authProviders : []
+    };
 }
 
 async function currentUser(req) {
@@ -108,8 +159,8 @@ async function currentUser(req) {
     if (!id) return null;
     const { ObjectId } = require("mongodb");
     if (!ObjectId.isValid(id)) return null;
-    const user = await (await getUsers()).findOne({ _id: new ObjectId(id) }, { projection: { name: 1, email: 1 } });
+    const user = await (await getUsers()).findOne({ _id: new ObjectId(id) }, { projection: { name: 1, email: 1, authProviders: 1 } });
     return user ? publicUser(user) : null;
 }
 
-module.exports = { getUsers, normalizeEmail, hashPassword, verifyPassword, setSession, SESSION_COOKIE, sessionCookieOptions, verifyGoogleCredential, publicUser, currentUser };
+module.exports = { getUsers, normalizeEmail, hashPassword, verifyPassword, hashResetToken, sendPasswordResetEmail, setSession, SESSION_COOKIE, sessionCookieOptions, verifyGoogleCredential, publicUser, currentUser };

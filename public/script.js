@@ -275,11 +275,13 @@ if (productLayout) {
 
 const loginForm = document.getElementById("loginForm");
 const signupForm = document.getElementById("signupForm");
+const forgotPasswordForm = document.getElementById("forgotPasswordForm");
+const resetPasswordForm = document.getElementById("resetPasswordForm");
 const authMessage = document.getElementById("authMessage");
 
-async function authRequest(url, body) {
+async function authRequest(url, body, method) {
     const response = await fetch(url, {
-        method: "POST",
+        method: method || "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
         body: JSON.stringify(body)
@@ -291,14 +293,41 @@ async function authRequest(url, body) {
 
 function showAuthError(message) {
     if (!authMessage) return;
+    authMessage.style.background = "";
+    authMessage.style.borderColor = "";
+    authMessage.style.color = "";
     authMessage.textContent = message;
     authMessage.hidden = false;
 }
 
+function showAuthSuccess(message) {
+    if (!authMessage) return;
+    authMessage.style.background = "#effaf1";
+    authMessage.style.borderColor = "#a8dfb4";
+    authMessage.style.color = "#1c6b2d";
+    authMessage.textContent = message;
+    authMessage.hidden = false;
+}
+
+function clearAuthError() {
+    if (!authMessage) return;
+    authMessage.textContent = "";
+    authMessage.hidden = true;
+}
+
+async function logoutAndRedirect(target) {
+    await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" }).catch(function () {});
+    window.location.href = target || "index.html";
+}
+
 if (loginForm || signupForm) {
     const googleContainer = document.getElementById("googleSignIn");
+    const googleDivider = googleContainer && googleContainer.previousElementSibling;
     fetch("/api/auth/config", { cache: "no-store" }).then(function (response) { return response.json(); }).then(function (config) {
-        if (!googleContainer || !config.googleClientId) return;
+        if (!googleContainer || !config.googleClientId) {
+            if (googleDivider && googleDivider.classList.contains("divider")) googleDivider.hidden = true;
+            return;
+        }
         const googleScript = document.createElement("script");
         googleScript.src = "https://accounts.google.com/gsi/client";
         googleScript.async = true;
@@ -307,13 +336,20 @@ if (loginForm || signupForm) {
             window.google.accounts.id.initialize({
                 client_id: config.googleClientId,
                 callback: async function (response) {
+                    clearAuthError();
                     try {
                         await authRequest("/api/auth/google", { credential: response.credential });
                         window.location.href = "profile.html";
                     } catch (error) { showAuthError(error.message); }
                 }
             });
-            window.google.accounts.id.renderButton(googleContainer, { theme: "outline", size: "large", text: "continue_with", shape: "rectangular", width: Math.min(360, googleContainer.clientWidth || 360) });
+            window.google.accounts.id.renderButton(googleContainer, {
+                theme: "outline",
+                size: "large",
+                text: signupForm ? "signup_with" : "continue_with",
+                shape: "rectangular",
+                width: Math.min(360, googleContainer.clientWidth || 360)
+            });
         };
         googleScript.onerror = function () { showAuthError("Google sign-in could not load. Please try again."); };
         document.head.appendChild(googleScript);
@@ -321,32 +357,126 @@ if (loginForm || signupForm) {
 }
 
 if (loginForm) {
-    loginForm.addEventListener("submit", function (event) {
+    loginForm.addEventListener("submit", async function (event) {
         event.preventDefault();
-        authRequest("/api/auth/login", {
-            email: document.getElementById("email").value,
-            password: document.getElementById("password").value
-        }).then(function () { window.location.href = "profile.html"; }).catch(function (error) { showAuthError(error.message); });
+        clearAuthError();
+        const submitBtn = loginForm.querySelector('button[type="submit"]');
+        const originalText = submitBtn.textContent;
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Logging in...";
+        try {
+            await authRequest("/api/auth/login", {
+                email: document.getElementById("email").value,
+                password: document.getElementById("password").value
+            });
+            window.location.href = "profile.html";
+        } catch (error) {
+            showAuthError(error.message);
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
+        }
     });
 }
 
 if (signupForm) {
-    signupForm.addEventListener("submit", function (event) {
+    signupForm.addEventListener("submit", async function (event) {
         event.preventDefault();
+        clearAuthError();
 
         const password = document.getElementById("password").value;
         const confirm = document.getElementById("confirm").value;
 
         if (password !== confirm) {
-            alert("Passwords do not match.");
+            showAuthError("Passwords do not match.");
             return;
         }
 
-        authRequest("/api/auth/signup", {
-            name: document.getElementById("name").value,
-            email: document.getElementById("email").value,
-            password: password
-        }).then(function () { window.location.href = "profile.html"; }).catch(function (error) { showAuthError(error.message); });
+        const submitBtn = signupForm.querySelector('button[type="submit"]');
+        const originalText = submitBtn.textContent;
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Creating account...";
+        try {
+            await authRequest("/api/auth/signup", {
+                name: document.getElementById("name").value,
+                email: document.getElementById("email").value,
+                password: password
+            });
+            window.location.href = "profile.html";
+        } catch (error) {
+            showAuthError(error.message);
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
+        }
+    });
+}
+
+if (forgotPasswordForm) {
+    forgotPasswordForm.addEventListener("submit", async function (event) {
+        event.preventDefault();
+        clearAuthError();
+        const submitBtn = forgotPasswordForm.querySelector('button[type="submit"]');
+        const originalText = submitBtn.textContent;
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Sending...";
+        try {
+            const data = await authRequest("/api/auth/forgot-password", {
+                email: document.getElementById("email").value
+            });
+            showAuthSuccess(data.message);
+            if (data.resetUrl) {
+                const link = document.createElement("a");
+                link.href = data.resetUrl;
+                link.className = "link-green";
+                link.textContent = " Open reset link";
+                authMessage.appendChild(link);
+            }
+        } catch (error) {
+            showAuthError(error.message);
+            if (error.message.includes("User Doesn't Exist")) {
+                const signupLink = document.createElement("a");
+                signupLink.href = "signup.html";
+                signupLink.className = "link-green";
+                signupLink.textContent = " Create account";
+                authMessage.appendChild(signupLink);
+                alert(error.message);
+            }
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
+        }
+    });
+}
+
+if (resetPasswordForm) {
+    const resetToken = new URLSearchParams(window.location.search).get("token") || "";
+    if (!resetToken) {
+        showAuthError("Reset token is missing. Please request a new reset link.");
+    }
+    resetPasswordForm.addEventListener("submit", async function (event) {
+        event.preventDefault();
+        clearAuthError();
+        const password = document.getElementById("password").value;
+        const confirm = document.getElementById("confirm").value;
+        if (password !== confirm) {
+            showAuthError("Passwords do not match.");
+            return;
+        }
+        const submitBtn = resetPasswordForm.querySelector('button[type="submit"]');
+        const originalText = submitBtn.textContent;
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Updating...";
+        try {
+            const data = await authRequest("/api/auth/reset-password", {
+                token: resetToken,
+                password: password
+            });
+            showAuthSuccess(data.message + " Redirecting to log in...");
+            setTimeout(function () { window.location.href = "login.html"; }, 1500);
+        } catch (error) {
+            showAuthError(error.message);
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
+        }
     });
 }
 
@@ -356,15 +486,38 @@ if (profile) {
         document.querySelector(".profile-id h1").textContent = data.user.name;
         document.querySelector(".profile-id p").textContent = data.user.email;
         document.querySelector(".profile-avatar").textContent = data.user.name.charAt(0).toUpperCase();
+
+        const accName = document.getElementById("accName");
+        const accEmail = document.getElementById("accEmail");
+        if (accName) accName.value = data.user.name;
+        if (accEmail) accEmail.value = data.user.email;
+
         const loginLink = document.querySelector(".navbar .login-btn");
-        loginLink.textContent = "Log out";
-        loginLink.href = "#logout";
-        loginLink.addEventListener("click", async function (event) {
-            event.preventDefault();
-            await fetch("/api/auth/logout", { method: "POST" });
-            window.location.href = "index.html";
-        });
+        if (loginLink) {
+            loginLink.textContent = "Log out";
+            loginLink.href = "#logout";
+            loginLink.addEventListener("click", function (event) {
+                event.preventDefault();
+                logoutAndRedirect("index.html");
+            });
+        }
     }).catch(function () { window.location.href = "login.html"; });
+} else {
+    fetch("/api/auth/me", { credentials: "same-origin" }).then(function (response) {
+        if (!response.ok) return null;
+        return response.json();
+    }).then(function (data) {
+        if (!data || !data.user) return;
+        if (loginForm || signupForm) {
+            window.location.href = "profile.html";
+            return;
+        }
+        const loginLink = document.querySelector(".navbar .login-btn");
+        if (loginLink) {
+            loginLink.textContent = data.user.name.split(" ")[0];
+            loginLink.href = "profile.html";
+        }
+    }).catch(function () {});
 }
 
 // Show / hide password (login, signup and profile)
@@ -400,10 +553,55 @@ document.querySelectorAll(".option-group").forEach(function (group) {
     });
 });
 
+const saveAccountBtn = document.getElementById("saveAccountBtn");
+const accountMessage = document.getElementById("accountMessage");
+
+function showAccountMessage(message, isSuccess) {
+    if (!accountMessage) return;
+    accountMessage.textContent = message;
+    accountMessage.style.background = isSuccess ? "#effaf1" : "";
+    accountMessage.style.borderColor = isSuccess ? "#a8dfb4" : "";
+    accountMessage.style.color = isSuccess ? "#1c6b2d" : "";
+    accountMessage.hidden = false;
+}
+
+if (saveAccountBtn) {
+    saveAccountBtn.addEventListener("click", async function () {
+        if (accountMessage) accountMessage.hidden = true;
+        const name = document.getElementById("accName").value;
+        const email = document.getElementById("accEmail").value;
+        const password = document.getElementById("accPass").value;
+        const confirmPassword = document.getElementById("accPass2").value;
+
+        if (password && password !== confirmPassword) {
+            showAccountMessage("New passwords do not match.", false);
+            return;
+        }
+
+        const payload = { name: name, email: email };
+        if (password) payload.password = password;
+
+        saveAccountBtn.disabled = true;
+        try {
+            const data = await authRequest("/api/auth/me", payload, "PATCH");
+            document.querySelector(".profile-id h1").textContent = data.user.name;
+            document.querySelector(".profile-id p").textContent = data.user.email;
+            document.querySelector(".profile-avatar").textContent = data.user.name.charAt(0).toUpperCase();
+            document.getElementById("accPass").value = "";
+            document.getElementById("accPass2").value = "";
+            showAccountMessage("Account details updated.", true);
+        } catch (error) {
+            showAccountMessage(error.message, false);
+        } finally {
+            saveAccountBtn.disabled = false;
+        }
+    });
+}
+
 const logoutBtn = document.getElementById("logoutBtn");
 
 if (logoutBtn) {
     logoutBtn.addEventListener("click", function () {
-        window.location.href = "login.html";
+        logoutAndRedirect("login.html");
     });
 }
