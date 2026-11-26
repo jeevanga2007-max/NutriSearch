@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add a product — NutriSearch</title>
+
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+          rel="stylesheet">
+</head>
+
+<body>
+
+    <!-- Navigation Bar -->
+    <header class="navbar">
+        <a href="index.html" class="logo">
+            <span>NutriSearch</span>
+        </a>
+
+        <nav class="nav-links">
+            <a href="index.html">Home</a>
+            <a href="profile.html">Saved products</a>
+            <a href="index.html">About</a>
+            <a href="login.html" class="login-btn">Log in</a>
+        </nav>
+    </header>
+
+
+    <main>
+        <section class="auth-page" id="addProduct">
+            <div class="page-container">
+
+                <a href="index.html" class="back-link">← Back to search</a>
+
+                <form class="account-card" id="addForm">
+
+                    <div>
+                        <h2>Add a product</h2>
+                        <p class="add-note">
+                            Can't find a product? Add it from its pack label. Only the barcode
+                            and name are required. Nutrition values are per 100 g.
+                        </p>
+                    </div>
+
+                    <div class="two-col">
+                        <div class="form-field">
+                            <label for="code">Barcode (8–14 digits)</label>
+                            <div class="input-box">
+                                <input id="code" name="code" required inputmode="numeric"
+                                       pattern="\d{8,14}" placeholder="e.g. 8901058000000">
+                            </div>
+                        </div>
+
+                        <div class="form-field">
+                            <label for="name">Product name</label>
+                            <div class="input-box">
+                                <input id="name" name="name" required maxlength="100"
+                                       placeholder="e.g. Masala Noodles">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="two-col">
+                        <div class="form-field">
+                            <label for="brand">Brand</label>
+                            <div class="input-box">
+                                <input id="brand" name="brand" maxlength="60">
+                            </div>
+                        </div>
+
+                        <div class="form-field">
+                            <label for="size">Pack size</label>
+                            <div class="input-box">
+                                <input id="size" name="size" maxlength="30" placeholder="e.g. 70 g">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-field">
+                        <label for="ingredients">Ingredients</label>
+                        <div class="input-box">
+                            <textarea id="ingredients" name="ingredients" rows="3"
+                                      maxlength="1500"
+                                      placeholder="Copy them from the label, separated by commas"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="section-label">Nutrition per 100 g (optional)</div>
+
+                    <div class="two-col">
+                        <div class="form-field">
+                            <label for="energy">Energy</label>
+                            <div class="input-box">
+                                <input id="energy" name="energy" type="number" step="any" min="0" max="900">
+                                <span class="unit">kcal</span>
+                            </div>
+                        </div>
+
+                        <div class="form-field">
+                            <label for="fat">Fat</label>
+                            <div class="input-box">
+                                <input id="fat" name="fat" type="number" step="any" min="0" max="100">
+                                <span class="unit">g</span>
+                            </div>
+                        </div>
+
+                        <div class="form-field">
+                            <label for="saturatedFat">Saturated fat</label>
+                            <div class="input-box">
+                                <input id="saturatedFat" name="saturatedFat" type="number" step="any" min="0" max="100">
+                                <span class="unit">g</span>
+                            </div>
+                        </div>
+
+                        <div class="form-field">
+                            <label for="carbohydrates">Carbohydrates</label>
+                            <div class="input-box">
+                                <input id="carbohydrates" name="carbohydrates" type="number" step="any" min="0" max="100">
+                                <span class="unit">g</span>
+                            </div>
+                        </div>
+
+                        <div class="form-field">
+                            <label for="sugars">Sugars</label>
+                            <div class="input-box">
+                                <input id="sugars" name="sugars" type="number" step="any" min="0" max="100">
+                                <span class="unit">g</span>
+                            </div>
+                        </div>
+
+                        <div class="form-field">
+                            <label for="fiber">Fibre</label>
+                            <div class="input-box">
+                                <input id="fiber" name="fiber" type="number" step="any" min="0" max="100">
+                                <span class="unit">g</span>
+                            </div>
+                        </div>
+
+                        <div class="form-field">
+                            <label for="proteins">Protein</label>
+                            <div class="input-box">
+                                <input id="proteins" name="proteins" type="number" step="any" min="0" max="100">
+                                <span class="unit">g</span>
+                            </div>
+                        </div>
+
+                        <div class="form-field">
+                            <label for="salt">Salt</label>
+                            <div class="input-box">
+                                <input id="salt" name="salt" type="number" step="any" min="0" max="100">
+                                <span class="unit">g</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <p class="status-message" id="status"></p>
+
+                    <button type="submit" class="btn-primary">Save product</button>
+                </form>
+
+            </div>
+        </section>
+    </main>
+
+
+    <!-- Footer -->
+    <footer class="footer">
+        Built for SDG 3 (Good Health &amp; Well-being) and SDG 12
+        (Responsible Consumption)
+    </footer>
+
+    <script src="script.js"></script>
+
+</body>
+</html>
