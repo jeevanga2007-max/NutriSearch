@@ -3,53 +3,87 @@ const assert = require("node:assert");
 const crypto = require("node:crypto");
 const { MongoClient, ObjectId } = require("mongodb");
 
-// In-memory users collection for isolated auth tests
-const store = [];
-const fakeCollection = {
-    async createIndex() {},
-    async findOne(query, options) {
-        const doc = store.find(function (item) {
-            if (query._id) return String(item._id) === String(query._id);
-            if (query.email) return item.email === query.email;
-            if (query.googleId) return item.googleId === query.googleId;
-            if (query.resetTokenHash) {
-                const hashMatch = item.resetTokenHash === query.resetTokenHash;
-                const notExpired = !query.resetTokenExpiresAt || (item.resetTokenExpiresAt && item.resetTokenExpiresAt > query.resetTokenExpiresAt.$gt);
-                return hashMatch && notExpired;
+// In-memory collections for isolated auth + admin tests
+function makeCollection(uniqueFields) {
+    const items = [];
+    function matches(item, query) {
+        for (const [k, v] of Object.entries(query || {})) {
+            if (k === "_id") {
+                if (String(item._id) !== String(v)) return false;
+            } else if (k === "resetTokenExpiresAt" && v && v.$gt) {
+                if (!item.resetTokenExpiresAt || item.resetTokenExpiresAt <= v.$gt) return false;
+            } else if (item[k] !== v) {
+                return false;
             }
-            return false;
-        });
-        if (!doc) return null;
-        if (!options || !options.projection) return { ...doc };
-        const projected = { _id: doc._id };
-        for (const [k, v] of Object.entries(options.projection)) {
-            if (v) projected[k] = doc[k];
         }
-        return projected;
-    },
-    async insertOne(doc) {
-        if (store.some(function (u) { return u.email === doc.email; })) {
-            const err = new Error("Duplicate key");
-            err.code = 11000;
-            throw err;
-        }
-        const _id = new ObjectId();
-        store.push({ ...doc, _id });
-        return { insertedId: _id };
-    },
-    async updateOne(filter, update) {
-        const doc = store.find(function (u) { return String(u._id) === String(filter._id); });
-        if (!doc) return { matchedCount: 0 };
-        if (update.$set) Object.assign(doc, update.$set);
-        if (update.$unset) {
-            for (const key of Object.keys(update.$unset)) delete doc[key];
-        }
-        if (update.$addToSet && update.$addToSet.authProviders) {
-            const toAdd = update.$addToSet.authProviders.$each || [update.$addToSet.authProviders];
-            doc.authProviders = Array.from(new Set([...(doc.authProviders || []), ...toAdd]));
-        }
-        return { matchedCount: 1 };
+        return true;
     }
+    return {
+        items,
+        async createIndex() {},
+        async findOne(query, options) {
+            const doc = items.find(function (item) { return matches(item, query); });
+            if (!doc) return null;
+            if (!options || !options.projection) return { ...doc };
+            const projected = { _id: doc._id };
+            for (const [k, v] of Object.entries(options.projection)) {
+                if (v) projected[k] = doc[k];
+            }
+            return projected;
+        },
+        find(query, options) {
+            let results = items.filter(function (item) { return matches(item, query); }).map(function (doc) {
+                if (!options || !options.projection) return { ...doc };
+                const projected = { _id: doc._id };
+                for (const [k, v] of Object.entries(options.projection)) {
+                    if (v) projected[k] = doc[k];
+                }
+                return projected;
+            });
+            return {
+                sort() { return this; },
+                limit(n) { results = results.slice(0, n); return this; },
+                async toArray() { return results; }
+            };
+        },
+        async insertOne(doc) {
+            for (const field of uniqueFields || []) {
+                if (doc[field] && items.some(function (u) { return u[field] === doc[field]; })) {
+                    const err = new Error("Duplicate key");
+                    err.code = 11000;
+                    throw err;
+                }
+            }
+            const _id = new ObjectId();
+            items.push({ ...doc, _id });
+            return { insertedId: _id };
+        },
+        async updateOne(filter, update) {
+            const doc = items.find(function (u) { return String(u._id) === String(filter._id); });
+            if (!doc) return { matchedCount: 0 };
+            if (update.$set) Object.assign(doc, update.$set);
+            if (update.$unset) {
+                for (const key of Object.keys(update.$unset)) delete doc[key];
+            }
+            if (update.$addToSet && update.$addToSet.authProviders) {
+                const toAdd = update.$addToSet.authProviders.$each || [update.$addToSet.authProviders];
+                doc.authProviders = Array.from(new Set([...(doc.authProviders || []), ...toAdd]));
+            }
+            return { matchedCount: 1 };
+        },
+        async deleteOne(filter) {
+            const idx = items.findIndex(function (u) { return matches(u, filter); });
+            if (idx < 0) return { deletedCount: 0 };
+            items.splice(idx, 1);
+            return { deletedCount: 1 };
+        }
+    };
+}
+
+const collections = {
+    users: makeCollection(["email"]),
+    products: makeCollection(["code"]),
+    product_suggestions: makeCollection([])
 };
 
 MongoClient.prototype.connect = async function () {
@@ -57,8 +91,9 @@ MongoClient.prototype.connect = async function () {
 };
 MongoClient.prototype.db = function () {
     return {
-        collection() {
-            return fakeCollection;
+        collection(name) {
+            if (!collections[name]) collections[name] = makeCollection([]);
+            return collections[name];
         }
     };
 };
@@ -298,4 +333,97 @@ test("personalized profile details persist across logout and next login", async 
     const meRes = await fetch(base + "/api/auth/me", { headers: { Cookie: nextCookie } });
     assert.strictEqual(meRes.status, 200);
     assert.deepStrictEqual((await meRes.json()).user.profile, customProfile);
+});
+
+test("default admin controls admin access and admins review suggested products", async function () {
+    // 1. Normal user cannot access admin endpoints
+    const aliceLogin = await fetch(base + "/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: "alice@example.com", password: "newpassword123" })
+    });
+    const aliceBody = await aliceLogin.json();
+    assert.strictEqual(aliceBody.user.isAdmin, false);
+    assert.strictEqual(aliceBody.user.isOwnerAdmin, false);
+    const aliceCookie = aliceLogin.headers.get("set-cookie").split(";")[0];
+
+    const forbiddenSuggestions = await fetch(base + "/api/admin/suggestions", { headers: { Cookie: aliceCookie } });
+    assert.strictEqual(forbiddenSuggestions.status, 403);
+
+    // 2. User suggests a product -> goes to pending review, not directly into products
+    const suggestRes = await fetch(base + "/api/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Cookie: aliceCookie },
+        body: JSON.stringify({ code: "8901234567890", name: "Organic Oats", brand: "NatureCo", size: "500 g" })
+    });
+    assert.strictEqual(suggestRes.status, 201);
+    const suggestBody = await suggestRes.json();
+    assert.strictEqual(suggestBody.status, "pending");
+    assert.strictEqual(collections.products.items.length, 0);
+
+    // 3. Default admin (jeevanmr1542001@gmail.com) logs in
+    const ownerSignup = await fetch(base + "/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Jeevan", email: "jeevanmr1542001@gmail.com", password: "ownerpassword123" })
+    });
+    assert.strictEqual(ownerSignup.status, 201);
+    const ownerBody = await ownerSignup.json();
+    assert.strictEqual(ownerBody.user.isAdmin, true);
+    assert.strictEqual(ownerBody.user.isOwnerAdmin, true);
+    const ownerCookie = ownerSignup.headers.get("set-cookie").split(";")[0];
+
+    // 4. Default admin grants admin access to Alice
+    const usersRes = await fetch(base + "/api/admin/users", { headers: { Cookie: ownerCookie } });
+    assert.strictEqual(usersRes.status, 200);
+    const grantRes = await fetch(base + "/api/admin/users/" + aliceBody.user.id + "/admin", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Cookie: ownerCookie },
+        body: JSON.stringify({ isAdmin: true })
+    });
+    assert.strictEqual(grantRes.status, 200);
+    assert.strictEqual((await grantRes.json()).user.isAdmin, true);
+
+    // 5. Alice (now admin) can review & approve the suggestion, but still cannot manage admin access
+    const aliceUsersRes = await fetch(base + "/api/admin/users", { headers: { Cookie: aliceCookie } });
+    assert.strictEqual(aliceUsersRes.status, 403);
+
+    const listRes = await fetch(base + "/api/admin/suggestions", { headers: { Cookie: aliceCookie } });
+    assert.strictEqual(listRes.status, 200);
+    const suggestions = (await listRes.json()).suggestions;
+    assert.strictEqual(suggestions.length, 1);
+
+    const approveRes = await fetch(base + "/api/admin/suggestions/" + suggestions[0].id + "/approve", {
+        method: "POST",
+        headers: { Cookie: aliceCookie }
+    });
+    assert.strictEqual(approveRes.status, 200);
+    assert.strictEqual(collections.products.items.length, 1);
+    assert.strictEqual(collections.products.items[0].code, "8901234567890");
+
+    // 6. Only default admin can permanently delete user accounts (and cannot delete self)
+    const aliceDeleteAttempt = await fetch(base + "/api/admin/users/" + ownerBody.user.id, {
+        method: "DELETE",
+        headers: { Cookie: aliceCookie }
+    });
+    assert.strictEqual(aliceDeleteAttempt.status, 403);
+
+    const selfDeleteAttempt = await fetch(base + "/api/admin/users/" + ownerBody.user.id, {
+        method: "DELETE",
+        headers: { Cookie: ownerCookie }
+    });
+    assert.strictEqual(selfDeleteAttempt.status, 400);
+
+    const deleteAliceRes = await fetch(base + "/api/admin/users/" + aliceBody.user.id, {
+        method: "DELETE",
+        headers: { Cookie: ownerCookie }
+    });
+    assert.strictEqual(deleteAliceRes.status, 200);
+
+    const deletedLogin = await fetch(base + "/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: "alice@example.com", password: "newpassword123" })
+    });
+    assert.strictEqual(deletedLogin.status, 401);
 });

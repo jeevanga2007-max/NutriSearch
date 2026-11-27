@@ -17,6 +17,7 @@ const NUMBER_FIELDS = {
 };
 
 let collectionPromise = null;
+let suggestionsPromise = null;
 
 function getCollection() {
     if (!collectionPromise) {
@@ -27,6 +28,17 @@ function getCollection() {
         collectionPromise.catch(function () { collectionPromise = null; });
     }
     return collectionPromise;
+}
+
+function getSuggestionsCollection() {
+    if (!suggestionsPromise) {
+        const client = new MongoClient(process.env.MONGODB_URI);
+        suggestionsPromise = client.connect().then(function () {
+            return client.db("nutriscan").collection("product_suggestions");
+        });
+        suggestionsPromise.catch(function () { suggestionsPromise = null; });
+    }
+    return suggestionsPromise;
 }
 
 function escapeRegex(text) {
@@ -139,8 +151,7 @@ function cleanText(value, max, label) {
     return text;
 }
 
-async function addProduct(input) {
-
+function buildProductDoc(input) {
     const code = String(input.code || "").trim();
     if (!/^\d{8,14}$/.test(code)) throw badRequest("Barcode must be 8 to 14 digits.");
 
@@ -169,20 +180,46 @@ async function addProduct(input) {
         doc[rule.key] = value;
     });
 
-    const col = await getCollection();
-
-    try {
-        await col.insertOne(doc);
-    } catch (error) {
-        if (error.code === 11000) {                  // duplicate barcode
-            const duplicate = new Error("A product with this barcode already exists.");
-            duplicate.status = 409;
-            throw duplicate;
-        }
-        throw error;
-    }
-
-    return { code: code };
+    return doc;
 }
 
-module.exports = { searchProducts, getProduct, addProduct };
+async function suggestProduct(input, submittedBy) {
+    const doc = buildProductDoc(input);
+    const products = await getCollection();
+    const suggestions = await getSuggestionsCollection();
+
+    const existingProduct = await products.findOne({ code: doc.code }, { projection: { _id: 1 } });
+    if (existingProduct) {
+        const duplicate = new Error("A product with this barcode already exists.");
+        duplicate.status = 409;
+        throw duplicate;
+    }
+
+    const existingPending = await suggestions.findOne({ code: doc.code, status: "pending" }, { projection: { _id: 1 } });
+    if (existingPending) {
+        const duplicate = new Error("This product is already pending admin review.");
+        duplicate.status = 409;
+        throw duplicate;
+    }
+
+    const suggestion = {
+        ...doc,
+        status: "pending",
+        submittedBy: submittedBy || "guest",
+        submittedAt: new Date()
+    };
+
+    const result = await suggestions.insertOne(suggestion);
+    return {
+        id: String(result.insertedId),
+        code: doc.code,
+        status: "pending",
+        message: "Product submitted for admin review."
+    };
+}
+
+async function addProduct(input) {
+    return suggestProduct(input);
+}
+
+module.exports = { searchProducts, getProduct, addProduct, suggestProduct, getCollection, getSuggestionsCollection };

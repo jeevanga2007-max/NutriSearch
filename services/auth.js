@@ -5,6 +5,7 @@ const crypto = require("node:crypto");
 const scrypt = promisify(crypto.scrypt);
 const SESSION_COOKIE = "nutrisearch_session";
 const SESSION_AGE = 7 * 24 * 60 * 60 * 1000;
+const DEFAULT_ADMIN_EMAIL = "jeevanmr1542001@gmail.com";
 let clientPromise;
 let googleKeys;
 let googleKeysFetchedAt = 0;
@@ -145,13 +146,23 @@ async function verifyGoogleCredential(token) {
     return { googleId: claims.sub, email: normalizeEmail(claims.email), name: String(claims.name || claims.email).slice(0, 100) };
 }
 
+function isDefaultAdmin(email) {
+    return normalizeEmail(email) === DEFAULT_ADMIN_EMAIL;
+}
+
+function isAdminUser(user) {
+    return Boolean(user && (isDefaultAdmin(user.email) || user.isAdmin === true));
+}
+
 async function publicUser(user) {
     return {
         id: String(user._id),
         name: user.name,
         email: user.email,
         authProviders: Array.isArray(user.authProviders) ? user.authProviders : [],
-        profile: user.profile || null
+        profile: user.profile || null,
+        isAdmin: isAdminUser(user),
+        isOwnerAdmin: isDefaultAdmin(user.email)
     };
 }
 
@@ -160,8 +171,8 @@ async function currentUser(req) {
     if (!id) return null;
     const { ObjectId } = require("mongodb");
     if (!ObjectId.isValid(id)) return null;
-    const user = await (await getUsers()).findOne({ _id: new ObjectId(id) }, { projection: { name: 1, email: 1, authProviders: 1, profile: 1 } });
+    const user = await (await getUsers()).findOne({ _id: new ObjectId(id) }, { projection: { name: 1, email: 1, authProviders: 1, profile: 1, isAdmin: 1 } });
     return user ? publicUser(user) : null;
 }
 
-module.exports = { getUsers, normalizeEmail, hashPassword, verifyPassword, hashResetToken, sendPasswordResetEmail, setSession, SESSION_COOKIE, sessionCookieOptions, verifyGoogleCredential, publicUser, currentUser };
+module.exports = { getUsers, normalizeEmail, hashPassword, verifyPassword, hashResetToken, sendPasswordResetEmail, setSession, SESSION_COOKIE, sessionCookieOptions, verifyGoogleCredential, DEFAULT_ADMIN_EMAIL, isDefaultAdmin, isAdminUser, publicUser, currentUser };

@@ -587,8 +587,22 @@ function applyProfileForm(p) {
     updateDailyTargets(p);
 }
 
+function injectAdminNavLink(user) {
+    if (!user || !user.isAdmin) return;
+    const navLinks = document.querySelector(".navbar .nav-links");
+    if (!navLinks || navLinks.querySelector(".admin-nav-link")) return;
+    const link = document.createElement("a");
+    link.href = "admin.html";
+    link.className = "admin-nav-link";
+    link.textContent = "Admin";
+    if (window.location.pathname.endsWith("/admin.html")) link.classList.add("active");
+    const anchor = navLinks.querySelector(".theme-toggle") || navLinks.querySelector(".login-btn");
+    navLinks.insertBefore(link, anchor || null);
+}
+
 if (profile) {
     getFromServer("/api/auth/me").then(function (data) {
+        injectAdminNavLink(data.user);
         document.querySelector(".profile-id h1").textContent = data.user.name;
         document.querySelector(".profile-id p").textContent = data.user.email;
         document.querySelector(".profile-avatar").textContent = data.user.name.charAt(0).toUpperCase();
@@ -620,6 +634,7 @@ if (profile) {
         return response.json();
     }).then(function (data) {
         if (!data || !data.user) return;
+        injectAdminNavLink(data.user);
         if (loginForm || signupForm) {
             window.location.href = "profile.html";
             return;
@@ -788,9 +803,242 @@ if (addForm) {
 
             if (!response.ok) throw new Error(data.error || "Could not save the product.");
 
-            window.location.href = "product.html?code=" + encodeURIComponent(data.code);
+            if (data.status === "pending") {
+                showStatus(data.message || "Submitted for admin review!");
+                addForm.reset();
+            } else {
+                window.location.href = "product.html?code=" + encodeURIComponent(data.code);
+            }
         } catch (error) {
             showStatus(error.message, true);
         }
+    });
+}
+
+
+/* =========================
+   7. ADMIN DASHBOARD (admin.html)
+========================= */
+
+const adminPage = document.getElementById("adminPage");
+
+if (adminPage) {
+    let allSuggestions = [];
+    let suggestionFilter = "pending";
+
+    function setAdminMsg(el, message, isSuccess) {
+        if (!el) return;
+        el.textContent = message;
+        el.classList.toggle("is-success", Boolean(isSuccess));
+        el.hidden = !message;
+    }
+
+    function renderSuggestions() {
+        const listEl = document.getElementById("suggestionsList");
+        const pendingCount = allSuggestions.filter(function (s) { return s.status === "pending"; }).length;
+        const approvedCount = allSuggestions.filter(function (s) { return s.status === "approved"; }).length;
+        document.getElementById("statPending").textContent = pendingCount;
+        document.getElementById("statApproved").textContent = approvedCount;
+
+        const visible = allSuggestions.filter(function (s) {
+            return suggestionFilter === "all" || s.status === suggestionFilter;
+        });
+
+        if (visible.length === 0) {
+            listEl.replaceChildren();
+            const empty = document.createElement("p");
+            empty.className = "status-message";
+            empty.textContent = suggestionFilter === "pending"
+                ? "No pending product suggestions to review."
+                : "No product suggestions found.";
+            listEl.appendChild(empty);
+            return;
+        }
+
+        listEl.replaceChildren(...visible.map(function (item) {
+            const row = document.createElement("div");
+            row.className = "admin-item";
+
+            const info = document.createElement("div");
+            info.className = "admin-item-info";
+
+            const head = document.createElement("div");
+            head.className = "admin-item-head";
+            const title = document.createElement("strong");
+            title.textContent = item.name;
+            const badge = document.createElement("span");
+            badge.className = "role-badge " + (item.status === "approved" ? "is-healthy" : item.status === "rejected" ? "is-rejected" : "is-pending");
+            badge.textContent = item.status.charAt(0).toUpperCase() + item.status.slice(1);
+            head.append(title, badge);
+
+            const meta1 = document.createElement("div");
+            meta1.className = "admin-item-meta";
+            meta1.textContent = [
+                "Barcode: " + item.code,
+                item.brand ? "Brand: " + item.brand : "",
+                item.size ? "Size: " + item.size : "",
+                "Submitted by: " + item.submittedBy
+            ].filter(Boolean).join(" · ");
+
+            info.append(head, meta1);
+
+            if (item.ingredients) {
+                const meta2 = document.createElement("div");
+                meta2.className = "admin-item-meta";
+                meta2.textContent = "Ingredients: " + item.ingredients;
+                info.appendChild(meta2);
+            }
+
+            const actions = document.createElement("div");
+            actions.className = "admin-actions";
+
+            if (item.status === "pending") {
+                const approveBtn = document.createElement("button");
+                approveBtn.type = "button";
+                approveBtn.className = "btn-primary";
+                approveBtn.textContent = "Approve";
+                approveBtn.addEventListener("click", async function () {
+                    approveBtn.disabled = true;
+                    try {
+                        await authRequest("/api/admin/suggestions/" + encodeURIComponent(item.id) + "/approve", {});
+                        setAdminMsg(document.getElementById("adminSuggestionMsg"), "Approved and published \"" + item.name + "\".", true);
+                        await loadSuggestions();
+                    } catch (err) {
+                        setAdminMsg(document.getElementById("adminSuggestionMsg"), err.message, false);
+                        approveBtn.disabled = false;
+                    }
+                });
+
+                const rejectBtn = document.createElement("button");
+                rejectBtn.type = "button";
+                rejectBtn.className = "btn-danger";
+                rejectBtn.textContent = "Reject";
+                rejectBtn.addEventListener("click", async function () {
+                    rejectBtn.disabled = true;
+                    try {
+                        await authRequest("/api/admin/suggestions/" + encodeURIComponent(item.id) + "/reject", {});
+                        setAdminMsg(document.getElementById("adminSuggestionMsg"), "Rejected \"" + item.name + "\".", true);
+                        await loadSuggestions();
+                    } catch (err) {
+                        setAdminMsg(document.getElementById("adminSuggestionMsg"), err.message, false);
+                        rejectBtn.disabled = false;
+                    }
+                });
+
+                actions.append(approveBtn, rejectBtn);
+            }
+
+            row.append(info, actions);
+            return row;
+        }));
+    }
+
+    async function loadSuggestions() {
+        const data = await getFromServer("/api/admin/suggestions");
+        allSuggestions = data.suggestions || [];
+        renderSuggestions();
+    }
+
+    async function loadAdminUsers() {
+        const data = await getFromServer("/api/admin/users");
+        const users = data.users || [];
+        const adminsCount = users.filter(function (u) { return u.isAdmin; }).length;
+        document.getElementById("statAdmins").textContent = adminsCount;
+
+        const listEl = document.getElementById("adminUsersList");
+        listEl.replaceChildren(...users.map(function (u) {
+            const row = document.createElement("div");
+            row.className = "admin-item";
+
+            const info = document.createElement("div");
+            info.className = "admin-item-info";
+
+            const head = document.createElement("div");
+            head.className = "admin-item-head";
+            const nameEl = document.createElement("strong");
+            nameEl.textContent = u.name;
+            const badge = document.createElement("span");
+            badge.className = "role-badge " + (u.isOwnerAdmin ? "is-owner" : u.isAdmin ? "is-healthy" : "");
+            badge.textContent = u.isOwnerAdmin ? "Default Admin" : u.isAdmin ? "Admin" : "User";
+            head.append(nameEl, badge);
+
+            const meta = document.createElement("div");
+            meta.className = "admin-item-meta";
+            meta.textContent = u.email + (u.authProviders && u.authProviders.length ? " · " + u.authProviders.join(", ") : "");
+            info.append(head, meta);
+
+            const actions = document.createElement("div");
+            actions.className = "admin-actions";
+
+            if (!u.isOwnerAdmin) {
+                const toggleBtn = document.createElement("button");
+                toggleBtn.type = "button";
+                toggleBtn.className = u.isAdmin ? "btn-danger" : "btn-outline";
+                toggleBtn.textContent = u.isAdmin ? "Revoke admin" : "Make admin";
+                toggleBtn.addEventListener("click", async function () {
+                    toggleBtn.disabled = true;
+                    try {
+                        await authRequest("/api/admin/users/" + encodeURIComponent(u.id) + "/admin", { isAdmin: !u.isAdmin }, "PATCH");
+                        setAdminMsg(document.getElementById("adminUsersMsg"), "Updated admin access for " + u.email + ".", true);
+                        await loadAdminUsers();
+                    } catch (err) {
+                        setAdminMsg(document.getElementById("adminUsersMsg"), err.message, false);
+                        toggleBtn.disabled = false;
+                    }
+                });
+
+                const deleteBtn = document.createElement("button");
+                deleteBtn.type = "button";
+                deleteBtn.className = "btn-danger";
+                deleteBtn.textContent = "Delete user";
+                deleteBtn.addEventListener("click", async function () {
+                    if (!window.confirm("Delete " + u.email + " permanently from the database? This cannot be undone.")) return;
+                    deleteBtn.disabled = true;
+                    try {
+                        await authRequest("/api/admin/users/" + encodeURIComponent(u.id), {}, "DELETE");
+                        setAdminMsg(document.getElementById("adminUsersMsg"), "Deleted user " + u.email + " from database.", true);
+                        await loadAdminUsers();
+                    } catch (err) {
+                        setAdminMsg(document.getElementById("adminUsersMsg"), err.message, false);
+                        deleteBtn.disabled = false;
+                    }
+                });
+
+                actions.append(toggleBtn, deleteBtn);
+            }
+
+            row.append(info, actions);
+            return row;
+        }));
+    }
+
+    document.querySelectorAll("[data-suggestion-filter]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+            suggestionFilter = btn.dataset.suggestionFilter;
+            document.querySelectorAll("[data-suggestion-filter]").forEach(function (b) {
+                b.classList.toggle("active", b === btn);
+            });
+            renderSuggestions();
+        });
+    });
+
+    getFromServer("/api/auth/me").then(async function (data) {
+        if (!data.user || !data.user.isAdmin) {
+            window.location.href = "index.html";
+            return;
+        }
+        adminPage.hidden = false;
+        document.getElementById("adminAvatar").textContent = data.user.name.charAt(0).toUpperCase();
+        document.getElementById("adminIdentity").textContent = data.user.name + " (" + data.user.email + ")";
+        document.getElementById("adminRoleBadge").textContent = data.user.isOwnerAdmin ? "Default Admin" : "Admin";
+
+        await loadSuggestions();
+        if (data.user.isOwnerAdmin) {
+            document.getElementById("statUsersCard").hidden = false;
+            document.getElementById("adminAccessCard").hidden = false;
+            await loadAdminUsers();
+        }
+    }).catch(function () {
+        window.location.href = "login.html";
     });
 }
