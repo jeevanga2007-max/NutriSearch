@@ -154,13 +154,37 @@ function isAdminUser(user) {
     return Boolean(user && (isDefaultAdmin(user.email) || user.isAdmin === true));
 }
 
+function publicProfile(profile) {
+    if (!profile || typeof profile !== "object" || Array.isArray(profile)) return null;
+    return {
+        age: Number.isInteger(profile.age) && profile.age >= 1 && profile.age <= 120 ? profile.age : null,
+        sex: ["Male", "Female", "Other"].includes(profile.sex) ? profile.sex : null,
+        height: Number.isFinite(profile.height) && profile.height >= 50 && profile.height <= 260 ? profile.height : null,
+        weight: Number.isFinite(profile.weight) && profile.weight >= 15 && profile.weight <= 350 ? profile.weight : null,
+        activityLevel: ["Sedentary", "Lightly active", "Moderately active", "Very active"].includes(profile.activityLevel)
+            ? profile.activityLevel : null,
+        goal: ["Lose weight", "Maintain", "Build muscle", "Eat healthier"].includes(profile.goal) ? profile.goal : null,
+        diet: ["Vegetarian", "Eggetarian", "Vegan", "Non-veg"].includes(profile.diet) ? profile.diet : null,
+        focusOn: Array.isArray(profile.focusOn)
+            ? profile.focusOn.filter(function (value) {
+                return ["Low sugar", "Low sodium", "High protein", "Low fat"].includes(value);
+            }).slice(0, 4)
+            : [],
+        allergies: Array.isArray(profile.allergies)
+            ? profile.allergies.filter(function (value) { return typeof value === "string"; })
+                .map(function (value) { return value.trim().slice(0, 80); })
+                .filter(Boolean).slice(0, 20)
+            : []
+    };
+}
+
 async function publicUser(user) {
     return {
         id: String(user._id),
         name: user.name,
         email: user.email,
         authProviders: Array.isArray(user.authProviders) ? user.authProviders : [],
-        profile: user.profile || null,
+        profile: publicProfile(user.profile),
         isAdmin: isAdminUser(user),
         isOwnerAdmin: isDefaultAdmin(user.email)
     };

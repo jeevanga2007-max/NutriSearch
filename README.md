@@ -7,7 +7,7 @@ product ingredients, nutrition facts, and highlights.
 
 1. Install Node.js 20.19.0 or newer.
 2. Install dependencies with `npm install`.
-3. Copy `.env.example` to `.env` and set `MONGODB_URI` and a private `SESSION_SECRET` (generate one with `openssl rand -hex 32`). Set `GOOGLE_CLIENT_ID` to enable Google sign-in. To enable AI-assisted assessment selection, set `OPENAI_API_KEY` and `OPENAI_MODEL`; both are server-only and optional.
+3. Copy `.env.example` to `.env` and set `MONGODB_URI` and a private `SESSION_SECRET` (generate one with `openssl rand -hex 32`). Set `GOOGLE_CLIENT_ID` to enable Google sign-in. To enable AI-assisted assessment selection, set `GEMINI_API_KEY` and `GEMINI_MODEL` to an available model that supports Interactions structured output; both are server-only and optional.
 4. Start the server with `npm start` and open http://localhost:3000.
 
 ## Accounts and Google sign-in
@@ -37,7 +37,7 @@ cookie; the browser cannot select another account.
 at least one product-matching preference. The server loads the selected
 product and related catalog products, applies deterministic nutrient,
 diet-label, ingredient, allergen and trace checks, and returns factual reasons
-plus alternatives. AI uses the OpenAI Responses API to generate a short
+plus alternatives. AI uses Google's Interactions API to generate a short
 explanation grounded in selected verified reason IDs, prioritize those
 reasons, and choose among server-screened product IDs. Unsupported
 vocabulary/measurements, unknown reason IDs, and unsafe or medical wording
@@ -45,6 +45,11 @@ invalidate the AI output. The model cannot add product facts, change allergy
 cautions, or select a conflicting/withheld product. If AI configuration or
 the provider is unavailable, the deterministic assessment and alternatives
 still work.
+
+The Gemini request contains only server-generated assessment reasons and
+screened candidate IDs/reasons, and uses `store: false`; it does not include
+account identifiers or unnecessary profile fields. Select `GEMINI_MODEL` from
+the models currently available to your Gemini API key.
 
 Nutrition comparisons use per-100-g values when present: low sugar is at most
 5 g, low fat at most 3 g, high protein at least 10 g, and low sodium at most
@@ -67,7 +72,7 @@ limited by the coverage of the loaded catalog.
 - `routes/products.js` defines product search and detail API endpoints.
 - `services/productDb.js` queries MongoDB product records and creates normalized summaries.
 - `services/personalization.js` contains deterministic product checks and alternative screening.
-- `services/aiAssessment.js` calls the optional OpenAI Responses API and validates ID selections.
+- `services/aiAssessment.js` calls the optional Google Gemini Interactions API and validates ID selections.
 - `public/` contains the website pages, styles, and browser script.
 - `scripts/import_products.py` imports products from the local dataset.
 - `test/products.test.js` contains the Node test suite.
