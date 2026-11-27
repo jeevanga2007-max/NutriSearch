@@ -11,7 +11,7 @@ const candidates = [{ id: "89012345", reasons: [{ id: "protein-match", text: "Pr
 test("AI selections are restricted to verified reason and product identifiers", async function () {
     let requestBody;
     const client = {
-        responses: {
+        interactions: {
             async create(request) {
                 requestBody = request;
                 return {
@@ -40,9 +40,30 @@ test("AI selections are restricted to verified reason and product identifiers", 
         selectedReasonIds: ["allergy-caution", "sugar-match"],
         alternatives: [{ productId: "89012345", reasonIds: ["protein-match"] }]
     });
-    assert.strictEqual(requestBody.text.format.type, "json_schema");
-    assert.strictEqual(requestBody.text.format.strict, true);
-    assert.ok(requestBody.instructions.includes("untrusted data"));
+    assert.strictEqual(requestBody.response_format.type, "text");
+    assert.strictEqual(requestBody.response_format.mime_type, "application/json");
+    assert.deepStrictEqual(requestBody.response_format.schema, {
+        type: "object",
+        properties: {
+            explanation: { type: "string" },
+            reasonIds: { type: "array", items: { type: "string" } },
+            alternatives: {
+                type: "array",
+                items: {
+                    type: "object",
+                    properties: {
+                        productId: { type: "string" },
+                        reasonIds: { type: "array", items: { type: "string" } }
+                    },
+                    required: ["productId", "reasonIds"]
+                }
+            }
+        },
+        required: ["explanation", "reasonIds", "alternatives"]
+    });
+    assert.strictEqual(requestBody.store, false);
+    assert.strictEqual(requestBody.generation_config.max_output_tokens, 300);
+    assert.ok(requestBody.system_instruction.includes("untrusted data"));
 });
 
 test("unsupported model reason claims are rejected", function () {
@@ -92,17 +113,17 @@ test("AI explanations cannot contradict a deterministic caution status", functio
 });
 
 test("AI provider failures return deterministic-fallback availability instead of throwing", async function () {
-    const oldKey = process.env.OPENAI_API_KEY;
-    const oldModel = process.env.OPENAI_MODEL;
-    process.env.OPENAI_API_KEY = "test-key";
-    process.env.OPENAI_MODEL = "test-model";
+    const oldKey = process.env.GEMINI_API_KEY;
+    const oldModel = process.env.GEMINI_MODEL;
+    process.env.GEMINI_API_KEY = "test-key";
+    process.env.GEMINI_MODEL = "test-model";
     try {
         const result = await getAiSelection({
             status: "matches_preferences",
             reasons,
             candidates,
             client: {
-                responses: {
+                interactions: {
                     async create() { throw new Error("provider unavailable"); }
                 }
             }
@@ -112,24 +133,60 @@ test("AI provider failures return deterministic-fallback availability instead of
             reason: "AI commentary and suggestions are temporarily unavailable."
         });
     } finally {
-        if (oldKey === undefined) delete process.env.OPENAI_API_KEY;
-        else process.env.OPENAI_API_KEY = oldKey;
-        if (oldModel === undefined) delete process.env.OPENAI_MODEL;
-        else process.env.OPENAI_MODEL = oldModel;
+        if (oldKey === undefined) delete process.env.GEMINI_API_KEY;
+        else process.env.GEMINI_API_KEY = oldKey;
+        if (oldModel === undefined) delete process.env.GEMINI_MODEL;
+        else process.env.GEMINI_MODEL = oldModel;
+    }
+});
+
+test("invalid Gemini output falls back instead of exposing an unsupported selection", async function () {
+    const oldKey = process.env.GEMINI_API_KEY;
+    const oldModel = process.env.GEMINI_MODEL;
+    process.env.GEMINI_API_KEY = "test-key";
+    process.env.GEMINI_MODEL = "test-model";
+    try {
+        const result = await getAiSelection({
+            status: "caution",
+            reasons,
+            candidates,
+            client: {
+                interactions: {
+                    async create() {
+                        return {
+                            output_text: JSON.stringify({
+                                explanation: "Review this food label.",
+                                reasonIds: ["unknown-reason"],
+                                alternatives: []
+                            })
+                        };
+                    }
+                }
+            }
+        });
+        assert.deepStrictEqual(result, {
+            available: false,
+            reason: "AI commentary and suggestions are temporarily unavailable."
+        });
+    } finally {
+        if (oldKey === undefined) delete process.env.GEMINI_API_KEY;
+        else process.env.GEMINI_API_KEY = oldKey;
+        if (oldModel === undefined) delete process.env.GEMINI_MODEL;
+        else process.env.GEMINI_MODEL = oldModel;
     }
 });
 
 test("missing AI configuration uses the deterministic path", async function () {
-    const oldKey = process.env.OPENAI_API_KEY;
-    const oldModel = process.env.OPENAI_MODEL;
-    delete process.env.OPENAI_API_KEY;
-    delete process.env.OPENAI_MODEL;
+    const oldKey = process.env.GEMINI_API_KEY;
+    const oldModel = process.env.GEMINI_MODEL;
+    delete process.env.GEMINI_API_KEY;
+    delete process.env.GEMINI_MODEL;
     try {
         const result = await getAiSelection({ reasons, candidates });
         assert.strictEqual(result.available, false);
         assert.ok(result.reason.includes("not configured"));
     } finally {
-        if (oldKey !== undefined) process.env.OPENAI_API_KEY = oldKey;
-        if (oldModel !== undefined) process.env.OPENAI_MODEL = oldModel;
+        if (oldKey !== undefined) process.env.GEMINI_API_KEY = oldKey;
+        if (oldModel !== undefined) process.env.GEMINI_MODEL = oldModel;
     }
 });

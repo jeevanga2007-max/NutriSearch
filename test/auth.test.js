@@ -2,12 +2,13 @@ const test = require("node:test");
 const assert = require("node:assert");
 const crypto = require("node:crypto");
 const { MongoClient, ObjectId } = require("mongodb");
+const { publicUser } = require("../services/auth");
 
 process.env.MONGODB_URI = "mongodb://127.0.0.1:27017";
 process.env.SESSION_SECRET = "test-session-secret-with-more-than-32-characters";
 process.env.GOOGLE_CLIENT_ID = "test-google-client-id";
-delete process.env.OPENAI_API_KEY;
-delete process.env.OPENAI_MODEL;
+delete process.env.GEMINI_API_KEY;
+delete process.env.GEMINI_MODEL;
 
 // In-memory collections for isolated auth + admin tests
 function makeCollection(uniqueFields) {
@@ -395,6 +396,7 @@ test("profile fields are optional, normalized, validated, and scoped to the sess
         body: JSON.stringify({ userId: charlie.user.id, profile })
     });
     assert.strictEqual(saveRes.status, 200);
+    assert.strictEqual(saveRes.headers.get("cache-control"), "no-store");
     const saved = await saveRes.json();
     assert.deepStrictEqual(saved.user.profile, {
         age: null,
@@ -440,6 +442,44 @@ test("profile fields are optional, normalized, validated, and scoped to the sess
 
     const charlieMe = await fetch(base + "/api/auth/me", { headers: { Cookie: charlieCookie } });
     assert.strictEqual((await charlieMe.json()).user.profile, null);
+});
+
+test("public account responses whitelist profile fields and disable caching", async function () {
+    const user = await publicUser({
+        _id: new ObjectId(),
+        name: "Profile Test",
+        email: "profile@example.com",
+        passwordHash: "private",
+        googleId: "private",
+        profile: {
+            age: 30,
+            allergies: ["Peanuts"],
+            passwordHash: "nested-private",
+            googleId: "nested-private"
+        }
+    });
+    assert.deepStrictEqual(user.profile, {
+        age: 30,
+        sex: null,
+        height: null,
+        weight: null,
+        activityLevel: null,
+        goal: null,
+        diet: null,
+        focusOn: [],
+        allergies: ["Peanuts"]
+    });
+    assert.strictEqual(Object.hasOwn(user, "passwordHash"), false);
+    assert.strictEqual(Object.hasOwn(user, "googleId"), false);
+
+    const login = await fetch(base + "/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: "charlie@example.com", password: "password123" })
+    });
+    const cookie = login.headers.get("set-cookie").split(";")[0];
+    const me = await fetch(base + "/api/auth/me", { headers: { Cookie: cookie } });
+    assert.strictEqual(me.headers.get("cache-control"), "no-store");
 });
 
 test("default admin controls admin access and admins review suggested products", async function () {

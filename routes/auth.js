@@ -196,6 +196,7 @@ router.post("/google", async function (req, res) {
 });
 
 router.get("/me", async function (req, res) {
+    res.set("Cache-Control", "no-store");
     try {
         const user = await currentUser(req);
         if (!user) return res.status(401).json({ error: "Please log in." });
@@ -204,6 +205,7 @@ router.get("/me", async function (req, res) {
 });
 
 router.patch("/me", async function (req, res) {
+    res.set("Cache-Control", "no-store");
     try {
         const user = await currentUser(req);
         if (!user) return res.status(401).json({ error: "Please log in." });
