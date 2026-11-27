@@ -49,6 +49,39 @@ function firstBrand(brands) {
     return String(brands || "").split(",")[0].trim();
 }
 
+function stringList(value) {
+    if (Array.isArray(value)) return value.map(function (item) { return String(item).trim(); }).filter(Boolean);
+    if (typeof value === "string" && value.trim()) return value.split(",").map(function (item) { return item.trim(); }).filter(Boolean);
+    return [];
+}
+
+function nutritionValue(doc, key) {
+    if (doc[key] === undefined || doc[key] === null || doc[key] === "") return null;
+    const value = Number(doc[key]);
+    return Number.isFinite(value) && value >= 0 ? { value, unit: "g", basis: "per 100 g" } : null;
+}
+
+function assessmentFacts(doc) {
+    return {
+        category: String(doc.categories_en || "").trim() || null,
+        categoryTags: stringList(doc.categories_tags),
+        ingredientsText: String(doc.ingredients_text || "").trim() || null,
+        allergens: String(doc.allergens || "").trim() || null,
+        allergenTags: stringList(doc.allergens_tags),
+        traces: String(doc.traces || "").trim() || null,
+        traceTags: stringList(doc.traces_tags),
+        dietLabels: stringList(doc.labels_tags),
+        ingredientAnalysisTags: stringList(doc.ingredients_analysis_tags),
+        nutrition: {
+            sugars: nutritionValue(doc, "sugars_100g"),
+            salt: nutritionValue(doc, "salt_100g"),
+            sodium: nutritionValue(doc, "sodium_100g"),
+            proteins: nutritionValue(doc, "proteins_100g"),
+            fat: nutritionValue(doc, "fat_100g")
+        }
+    };
+}
+
 // The website only shows https images
 function safeImage(url) {
     return url ? String(url).replace(/^http:\/\//, "https://") : null;
@@ -68,11 +101,12 @@ function badRequest(message) {
 function toSummary(doc) {
     return {
         code: doc.code,
-        name: String(doc.product_name).trim(),
+        name: String(doc.product_name || "Unnamed product").trim(),
         brand: firstBrand(doc.brands),
         size: doc.quantity || "",
         score: cleanScore(doc.nutriscore_grade),
-        image: safeImage(doc.image_small_url)
+        image: safeImage(doc.image_small_url),
+        assessmentFacts: assessmentFacts(doc)
     };
 }
 
@@ -91,7 +125,8 @@ function toDetail(doc) {
         ingredients: splitIngredients(doc.ingredients_text),
         nutrition: buildNutrition(doc),
         highlights: rating.highlights,
-        summary: rating.summary
+        summary: rating.summary,
+        assessmentFacts: assessmentFacts(doc)
     };
 }
 
@@ -104,7 +139,11 @@ async function searchProducts(query) {
 
     const col = await getCollection();
     const fields = { _id: 0, code: 1, product_name: 1, brands: 1, quantity: 1,
-                     nutriscore_grade: 1, image_small_url: 1 };
+                     nutriscore_grade: 1, image_small_url: 1, categories_en: 1,
+                     categories_tags: 1, ingredients_text: 1, allergens: 1,
+                     allergens_tags: 1, traces: 1, traces_tags: 1, labels_tags: 1,
+                     ingredients_analysis_tags: 1, "sugars_100g": 1, "salt_100g": 1,
+                     "sodium_100g": 1, "proteins_100g": 1, "fat_100g": 1 };
 
     // 1) whole-word search, best matches first
     let docs = [];
@@ -128,7 +167,7 @@ async function searchProducts(query) {
             .toArray();
     }
 
-    return docs.map(toSummary);
+    return docs.filter(function (doc) { return String(doc.product_name || "").trim(); }).map(toSummary);
 }
 
 async function getProduct(code) {
@@ -143,6 +182,22 @@ async function getProduct(code) {
     }
 
     return toDetail(doc);
+}
+
+async function getSimilarProducts(code, facts, limit) {
+    const categoryTags = stringList(facts && facts.categoryTags);
+    const category = String(facts && facts.category || "").trim();
+    const categoryQuery = [];
+    if (categoryTags.length) categoryQuery.push({ categories_tags: { $in: categoryTags } });
+    if (category) categoryQuery.push({ categories_en: category });
+    if (!categoryQuery.length) return [];
+
+    const col = await getCollection();
+    const docs = await col.find(
+        { code: { $ne: code }, $or: categoryQuery },
+        { projection: { _id: 0 } }
+    ).limit(Math.min(Math.max(Number(limit) || 30, 1), 50)).toArray();
+    return docs.map(toDetail);
 }
 
 function cleanText(value, max, label) {
@@ -309,6 +364,7 @@ async function addProduct(input) {
 module.exports = {
     searchProducts,
     getProduct,
+    getSimilarProducts,
     addProduct,
     suggestProduct,
     getCollection,

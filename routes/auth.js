@@ -38,35 +38,94 @@ function validatePassword(rawPassword) {
     return { value: password };
 }
 
+const PROFILE_ENUMS = {
+    sex: ["Male", "Female", "Other"],
+    activityLevel: ["Sedentary", "Lightly active", "Moderately active", "Very active"],
+    goal: ["Lose weight", "Maintain", "Build muscle", "Eat healthier"],
+    diet: ["Vegetarian", "Eggetarian", "Vegan", "Non-veg"],
+    focusOn: ["Low sugar", "Low sodium", "High protein", "Low fat"]
+};
+const PROFILE_FIELDS = new Set(["age", "sex", "height", "weight", "activityLevel", "goal", "diet", "focusOn", "allergies"]);
+
+function optionalNumber(rawValue, label, min, max, integer) {
+    if (rawValue === undefined || rawValue === null || rawValue === "" ||
+        (typeof rawValue === "string" && rawValue.trim() === "")) return { value: null };
+    if (typeof rawValue !== "number" && (typeof rawValue !== "string" || !/^\d+(?:\.\d+)?$/.test(rawValue.trim()))) {
+        return { error: label + " must be a number from " + min + " to " + max + "." };
+    }
+    const value = Number(rawValue);
+    if (!Number.isFinite(value) || value < min || value > max || (integer && !Number.isInteger(value))) {
+        return { error: label + " must be " + (integer ? "a whole number" : "a number") + " from " + min + " to " + max + "." };
+    }
+    return { value };
+}
+
+function optionalEnum(rawValue, field) {
+    if (rawValue === undefined || rawValue === null || rawValue === "") return { value: null };
+    if (typeof rawValue !== "string") return { error: "Choose a valid " + field + "." };
+    const value = rawValue.trim();
+    if (!value) return { value: null };
+    if (!PROFILE_ENUMS[field].includes(value)) {
+        return { error: "Choose a valid " + field + "." };
+    }
+    return { value };
+}
+
+function cleanProfileList(rawValue, field, allowedValues, maxItems, maxLength) {
+    if (rawValue === undefined || rawValue === null) return { value: [] };
+    if (!Array.isArray(rawValue) || rawValue.length > maxItems) {
+        return { error: field + " must be a list with no more than " + maxItems + " items." };
+    }
+    const values = [];
+    const seen = new Set();
+    for (const rawItem of rawValue) {
+        if (typeof rawItem !== "string") return { error: "Each " + field + " item must be text." };
+        const item = rawItem.trim();
+        if (item.length > maxLength) return { error: "Each " + field + " item must be " + maxLength + " characters or fewer." };
+        if (!item) continue;
+        if (allowedValues && !allowedValues.includes(item)) return { error: "Choose valid " + field + " options." };
+        const key = item.toLocaleLowerCase();
+        if (!seen.has(key)) {
+            values.push(item);
+            seen.add(key);
+        }
+    }
+    return { value: values };
+}
+
 function sanitizeProfile(raw) {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
         return { error: "Invalid profile data." };
     }
-    const age = Number(raw.age);
-    const height = Number(raw.height);
-    const weight = Number(raw.weight);
-    if (!Number.isFinite(age) || age < 1 || age > 120) return { error: "Age must be between 1 and 120." };
-    if (!Number.isFinite(height) || height < 50 || height > 260) return { error: "Height must be between 50 and 260 cm." };
-    if (!Number.isFinite(weight) || weight < 15 || weight > 350) return { error: "Weight must be between 15 and 350 kg." };
+    if (Object.keys(raw).some(function (field) { return !PROFILE_FIELDS.has(field); })) {
+        return { error: "Profile contains an unsupported field." };
+    }
 
-    const sex = ["Male", "Female", "Other"].includes(raw.sex) ? raw.sex : "Other";
-    const cleanText = function (val) { return String(val || "").trim().slice(0, 50); };
-    const cleanList = function (arr) {
-        if (!Array.isArray(arr)) return [];
-        return Array.from(new Set(arr.map(cleanText).filter(Boolean))).slice(0, 20);
-    };
+    const age = optionalNumber(raw.age, "Age", 1, 120, true);
+    const height = optionalNumber(raw.height, "Height", 50, 260, false);
+    const weight = optionalNumber(raw.weight, "Weight", 15, 350, false);
+    const sex = optionalEnum(raw.sex, "sex");
+    const activityLevel = optionalEnum(raw.activityLevel, "activityLevel");
+    const goal = optionalEnum(raw.goal, "goal");
+    const diet = optionalEnum(raw.diet, "diet");
+    const focusOn = cleanProfileList(raw.focusOn, "focus areas", PROFILE_ENUMS.focusOn, 4, 30);
+    const allergies = cleanProfileList(raw.allergies, "allergies", null, 20, 80);
+
+    for (const checked of [age, height, weight, sex, activityLevel, goal, diet, focusOn, allergies]) {
+        if (checked.error) return checked;
+    }
 
     return {
         value: {
-            age: Math.round(age),
-            sex,
-            height: Math.round(height),
-            weight: Math.round(weight * 10) / 10,
-            activityLevel: cleanText(raw.activityLevel),
-            goal: cleanText(raw.goal),
-            diet: cleanText(raw.diet),
-            focusOn: cleanList(raw.focusOn),
-            allergies: cleanList(raw.allergies)
+            age: age.value,
+            sex: sex.value,
+            height: height.value === null ? null : Math.round(height.value),
+            weight: weight.value === null ? null : Math.round(weight.value * 10) / 10,
+            activityLevel: activityLevel.value,
+            goal: goal.value,
+            diet: diet.value,
+            focusOn: focusOn.value,
+            allergies: allergies.value
         }
     };
 }
@@ -148,28 +207,32 @@ router.patch("/me", async function (req, res) {
     try {
         const user = await currentUser(req);
         if (!user) return res.status(401).json({ error: "Please log in." });
+        const body = req.body;
+        if (!body || typeof body !== "object" || Array.isArray(body)) {
+            return res.status(400).json({ error: "Invalid account update request." });
+        }
 
         const updates = {};
-        if (req.body.name !== undefined) {
-            const nameCheck = validateName(req.body.name);
+        if (body.name !== undefined) {
+            const nameCheck = validateName(body.name);
             if (nameCheck.error) return res.status(400).json({ error: nameCheck.error });
             updates.name = nameCheck.value;
         }
-        if (req.body.email !== undefined) {
-            const emailCheck = validateEmail(req.body.email);
+        if (body.email !== undefined) {
+            const emailCheck = validateEmail(body.email);
             if (emailCheck.error) return res.status(400).json({ error: emailCheck.error });
             updates.email = emailCheck.value;
         }
 
         const addProviders = [];
-        if (req.body.password) {
-            const passwordCheck = validatePassword(req.body.password);
+        if (body.password) {
+            const passwordCheck = validatePassword(body.password);
             if (passwordCheck.error) return res.status(400).json({ error: passwordCheck.error });
             updates.passwordHash = await hashPassword(passwordCheck.value);
             addProviders.push("password");
         }
-        if (req.body.profile !== undefined) {
-            const profileCheck = sanitizeProfile(req.body.profile);
+        if (body.profile !== undefined) {
+            const profileCheck = sanitizeProfile(body.profile);
             if (profileCheck.error) return res.status(400).json({ error: profileCheck.error });
             updates.profile = profileCheck.value;
         }

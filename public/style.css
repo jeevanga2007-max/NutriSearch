@@ -1021,6 +1021,105 @@ main {
     color: var(--dark-green);
 }
 
+.personalized-assessment {
+    gap: 12px;
+}
+
+.personalized-assessment h2 {
+    font-size: 13px;
+    color: var(--dark-green);
+}
+
+.assessment-status {
+    font-size: 10px;
+    line-height: 1.5;
+    padding: 9px 10px;
+    border-radius: 8px;
+    background: var(--light-green);
+}
+
+.assessment-status.caution {
+    background: #fff4f4;
+    border: 1px solid #e8a4a4;
+    color: #8d2020;
+    font-weight: 700;
+}
+
+.assessment-status.incomplete {
+    background: #fff8e6;
+    border: 1px solid #ead18c;
+    color: #765300;
+    font-weight: 700;
+}
+
+.assessment-ai-note,
+.personalized-assessment > p,
+.assessment-alternatives > p {
+    font-size: 9.5px;
+    line-height: 1.55;
+    color: var(--text-secondary);
+}
+
+.assessment-reasons {
+    margin: 0;
+    padding-left: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    font-size: 10px;
+    line-height: 1.55;
+}
+
+.assessment-reasons .reason-caution,
+.assessment-reasons .reason-unknown {
+    color: #8d2020;
+    font-weight: 600;
+}
+
+.assessment-alternatives {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.alternative-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 9px;
+}
+
+.alternative-card {
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    color: var(--text-primary);
+}
+
+.alternative-card h4 {
+    font-size: 10px;
+    line-height: 1.45;
+}
+
+.alternative-card p,
+.alternative-card li {
+    font-size: 9px;
+    line-height: 1.45;
+}
+
+.alternative-caution {
+    color: #8d2020;
+    font-weight: 700;
+}
+
+.alternative-image {
+    width: 52px;
+    height: 52px;
+    object-fit: contain;
+}
+
 .nutrition-row {
     display: flex;
     justify-content: space-between;
@@ -1426,10 +1525,57 @@ main {
     color: var(--white);
 }
 
+.option-chip:focus-visible,
+.add-avoid-row button:focus-visible {
+    outline: 3px solid #256529;
+    outline-offset: 2px;
+}
+
 .option-chip.chip-add {
     border-color: var(--primary-green);
     color: var(--primary-green);
     background: transparent;
+}
+
+.personalise-card fieldset {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: 100%;
+    min-width: 0;
+    border: 0;
+    margin: 0;
+    padding: 0;
+}
+
+.add-avoid-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    max-width: 360px;
+}
+
+.add-avoid-row input {
+    min-width: 0;
+    flex: 1;
+    border: 1px solid var(--border-color);
+    border-radius: 7px;
+    padding: 8px;
+    background: var(--white);
+    color: var(--text-primary);
+    font: inherit;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
 
 .option-chip .targets-box {

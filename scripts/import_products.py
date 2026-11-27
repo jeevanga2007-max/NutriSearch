@@ -12,11 +12,13 @@ FILE = "data/en.openfoodfacts.org.products.csv.gz"
 
 col.drop()   # one-time: wipe old data so the new fields are included
 TEXT_COLS = ["code", "product_name", "brands", "quantity", "ingredients_text",
-             "allergens", "additives_tags", "nutriscore_grade", "countries_tags",
-             "countries_en", "image_url", "image_small_url"]
+             "allergens", "allergens_tags", "traces", "traces_tags",
+             "ingredients_analysis_tags", "labels_tags", "categories_en",
+             "categories_tags", "additives_tags", "nutriscore_grade",
+             "countries_tags", "countries_en", "image_url", "image_small_url"]
 NUM_COLS = ["nova_group", "energy-kcal_100g", "sugars_100g", "fat_100g",
             "saturated-fat_100g", "salt_100g", "proteins_100g",
-            "carbohydrates_100g", "fiber_100g"]
+            "sodium_100g", "carbohydrates_100g", "fiber_100g"]
 
 # Create the unique index FIRST so duplicate barcodes are rejected
 col.create_index([("code", ASCENDING)], unique=True)
@@ -35,8 +37,10 @@ for chunk in pd.read_csv(FILE, sep="\t", usecols=TEXT_COLS + NUM_COLS,
     docs = []
     for rec in chunk.to_dict("records"):
         doc = {k: v for k, v in rec.items() if pd.notna(v)}  # drop empty fields
-        if "additives_tags" in doc:
-            doc["additives_tags"] = doc["additives_tags"].split(",")
+        for field in ("allergens_tags", "traces_tags", "ingredients_analysis_tags",
+                      "labels_tags", "categories_tags", "additives_tags"):
+            if field in doc:
+                doc[field] = doc[field].split(",")
         docs.append(doc)
 
     if docs:
