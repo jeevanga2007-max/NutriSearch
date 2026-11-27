@@ -1,7 +1,8 @@
 // /api/products routes
 
 const express = require("express");
-const { searchProducts, getProduct, addProduct } = require("../services/productDb");
+const { searchProducts, getProduct, suggestProduct } = require("../services/productDb");
+const { currentUser } = require("../services/auth");
 
 const router = express.Router();
 
@@ -66,7 +67,8 @@ router.post("/", async function (req, res, next) {
     }
 
     try {
-        const result = await addProduct(req.body || {});
+        const user = await currentUser(req).catch(function () { return null; });
+        const result = await suggestProduct(req.body || {}, user ? user.email : "guest");
         res.status(201).json(result);
     } catch (error) {
         next(error);

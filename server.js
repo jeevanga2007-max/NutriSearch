@@ -6,6 +6,7 @@ const express = require("express");
 const path = require("path");
 const productRoutes = require("./routes/products");
 const authRoutes = require("./routes/auth");
+const adminRoutes = require("./routes/admin");
 
 const app = express();
 
@@ -28,6 +29,7 @@ app.use(express.static(path.join(__dirname, "public")));
 // API routes
 app.use("/api/products", productRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/admin", adminRoutes);
 
 // Unknown /api addresses
 app.use("/api", function (req, res) {

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard — NutriSearch</title>
+
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+          rel="stylesheet">
+</head>
+
+<body>
+
+    <!-- Navigation Bar -->
+    <header class="navbar">
+        <a href="index.html" class="logo">
+            <span>NutriSearch</span>
+        </a>
+
+        <nav class="nav-links">
+            <a href="index.html">Home</a>
+            <a href="profile.html">Saved products</a>
+            <a href="index.html">About</a>
+            <a href="login.html" class="login-btn">Log in</a>
+        </nav>
+    </header>
+
+
+    <main>
+        <section class="profile-page" id="adminPage" hidden>
+            <div class="page-container">
+
+                <!-- Admin header -->
+                <div class="profile-header">
+                    <div class="profile-avatar" id="adminAvatar">A</div>
+                    <div class="profile-id">
+                        <h1>Admin Dashboard</h1>
+                        <p id="adminIdentity">Checking permissions...</p>
+                    </div>
+                    <span class="role-badge is-owner" id="adminRoleBadge">Admin</span>
+                </div>
+
+                <!-- Summary Stats -->
+                <div class="stat-row">
+                    <div class="stat-card">
+                        <div class="feature-icon">⏳</div>
+                        <div><strong id="statPending">0</strong><span>Pending product reviews</span></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="feature-icon">✓</div>
+                        <div><strong id="statApproved">0</strong><span>Approved products</span></div>
+                    </div>
+                    <div class="stat-card" id="statUsersCard" hidden>
+                        <div class="feature-icon">👥</div>
+                        <div><strong id="statAdmins">1</strong><span>Active admins</span></div>
+                    </div>
+                </div>
+
+                <!-- 1. Review Suggested Products -->
+                <div class="personalise-card">
+                    <div class="personalise-head">
+                        <div>
+                            <h2>Suggested products for review</h2>
+                            <p>Approve user-submitted products to publish them to the NutriSearch catalog, or reject invalid entries.</p>
+                        </div>
+                        <div class="filter-chips admin-filters">
+                            <button type="button" class="filter-chip active" data-suggestion-filter="pending">Pending</button>
+                            <button type="button" class="filter-chip" data-suggestion-filter="all">All</button>
+                        </div>
+                    </div>
+
+                    <p id="adminSuggestionMsg" class="auth-message" role="alert" hidden></p>
+                    <div class="admin-list" id="suggestionsList">
+                        <p class="status-message">Loading suggestions...</p>
+                    </div>
+                </div>
+
+                <!-- 2. Manage Admin Access (Default Admin Only) -->
+                <div class="personalise-card" id="adminAccessCard" hidden>
+                    <div class="personalise-head">
+                        <div>
+                            <h2>Manage admin access</h2>
+                            <p>Only the default admin can grant or revoke admin access for other users.</p>
+                        </div>
+                        <span class="privacy-tag">🔒 Owner admin only</span>
+                    </div>
+
+                    <p id="adminUsersMsg" class="auth-message" role="alert" hidden></p>
+                    <div class="admin-list" id="adminUsersList">
+                        <p class="status-message">Loading users...</p>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+    </main>
+
+
+    <!-- Footer -->
+    <footer class="footer">
+        Built for SDG 3 (Good Health &amp; Well-being) and SDG 12
+        (Responsible Consumption)
+    </footer>
+
+    <script src="script.js"></script>
+
+</body>
+</html>
