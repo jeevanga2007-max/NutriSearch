@@ -37,52 +37,40 @@
 
                 <!-- Profile header -->
                 <div class="profile-header">
-                    <div class="profile-avatar">S</div>
+                    <div class="profile-avatar" aria-hidden="true">?</div>
                     <div class="profile-id">
-                        <h1>Sample User</h1>
-                        <p>you@example.com</p>
-                    </div>
-                    <button type="button" class="btn-outline">✎ Edit profile</button>
-                </div>
-
-                <!-- Stats -->
-                <div class="stat-row">
-                    <div class="stat-card">
-                        <div class="feature-icon">♥</div>
-                        <div><strong>12</strong><span>Saved products</span></div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="feature-icon">🔍</div>
-                        <div><strong>34</strong><span>Products checked</span></div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="feature-icon">✓</div>
-                        <div><strong>9</strong><span>Searches this week</span></div>
+                        <h1>Loading account...</h1>
+                        <p></p>
                     </div>
                 </div>
 
 
                 <!-- Personalise -->
-                <div class="personalise-card">
+                <form class="personalise-card" id="personalisationForm" aria-busy="true">
 
                     <div class="personalise-head">
                         <div>
                             <h2>Personalise your results</h2>
-                            <p>Add a few details and NutriSearch will flag what matters for you and suggest better options.</p>
+                            <p>Choose optional food preferences. Product information may be incomplete, and matches are general food information—not medical advice.</p>
                         </div>
                         <span class="privacy-tag">🔒 Private · optional</span>
                     </div>
 
+                    <p id="profileLoadStatus" class="status-message" role="status">Loading saved preferences...</p>
+
+                    <fieldset id="profileControls" disabled>
+                    <legend class="sr-only">Optional profile and food preferences</legend>
                     <div class="measure-row">
                         <div class="form-field">
                             <label for="age">Age</label>
-                            <div class="input-box"><input type="number" id="age" value="25"><span class="unit">years</span></div>
+                            <div class="input-box"><input type="number" id="age" min="1" max="120" step="1"><span class="unit">years</span></div>
                         </div>
 
                         <div class="form-field">
                             <label for="sex">Sex</label>
                             <div class="input-box">
                                 <select id="sex">
+                                    <option value="">Optional</option>
                                     <option>Male</option>
                                     <option>Female</option>
                                     <option>Other</option>
@@ -92,88 +80,88 @@
 
                         <div class="form-field">
                             <label for="height">Height</label>
-                            <div class="input-box"><input type="number" id="height" value="170"><span class="unit">cm</span></div>
+                            <div class="input-box"><input type="number" id="height" min="50" max="260" step="1"><span class="unit">cm</span></div>
                         </div>
 
                         <div class="form-field">
                             <label for="weight">Weight</label>
-                            <div class="input-box"><input type="number" id="weight" value="65"><span class="unit">kg</span></div>
+                            <div class="input-box"><input type="number" id="weight" min="15" max="350" step="0.1"><span class="unit">kg</span></div>
                         </div>
                     </div>
 
                     <div class="option-row">
-                        <div class="option-group" data-select="single" data-profile-field="activityLevel">
-                            <span class="group-label">Activity level</span>
+                        <div class="option-group" role="group" aria-labelledby="activityLabel" data-select="single" data-profile-field="activityLevel">
+                            <span class="group-label" id="activityLabel">Activity level</span>
                             <div class="option-list">
+                                <button type="button" class="option-chip" data-value="" aria-pressed="false">Not specified</button>
                                 <button type="button" class="option-chip">Sedentary</button>
                                 <button type="button" class="option-chip">Lightly active</button>
-                                <button type="button" class="option-chip active">Moderately active</button>
+                                <button type="button" class="option-chip">Moderately active</button>
                                 <button type="button" class="option-chip">Very active</button>
                             </div>
                         </div>
 
-                        <div class="option-group" data-select="single" data-profile-field="goal">
-                            <span class="group-label">Your goal</span>
+                        <div class="option-group" role="group" aria-labelledby="goalLabel" data-select="single" data-profile-field="goal">
+                            <span class="group-label" id="goalLabel">Your goal</span>
                             <div class="option-list">
+                                <button type="button" class="option-chip" data-value="" aria-pressed="false">Not specified</button>
                                 <button type="button" class="option-chip">Lose weight</button>
                                 <button type="button" class="option-chip">Maintain</button>
-                                <button type="button" class="option-chip active">Build muscle</button>
+                                <button type="button" class="option-chip">Build muscle</button>
                                 <button type="button" class="option-chip">Eat healthier</button>
                             </div>
                         </div>
                     </div>
 
                     <div class="option-row">
-                        <div class="option-group" data-select="single" data-profile-field="diet">
-                            <span class="group-label">Diet</span>
+                        <div class="option-group" role="group" aria-labelledby="dietLabel" data-select="single" data-profile-field="diet">
+                            <span class="group-label" id="dietLabel">Diet</span>
                             <div class="option-list">
-                                <button type="button" class="option-chip active">Vegetarian</button>
+                                <button type="button" class="option-chip" data-value="" aria-pressed="false">Not specified</button>
+                                <button type="button" class="option-chip">Vegetarian</button>
                                 <button type="button" class="option-chip">Eggetarian</button>
                                 <button type="button" class="option-chip">Vegan</button>
                                 <button type="button" class="option-chip">Non-veg</button>
                             </div>
                         </div>
 
-                        <div class="option-group" data-select="multi" data-profile-field="focusOn">
-                            <span class="group-label">Focus on</span>
+                        <div class="option-group" role="group" aria-labelledby="focusLabel" data-select="multi" data-profile-field="focusOn">
+                            <span class="group-label" id="focusLabel">Focus on</span>
                             <div class="option-list">
-                                <button type="button" class="option-chip active">Low sugar</button>
+                                <button type="button" class="option-chip">Low sugar</button>
                                 <button type="button" class="option-chip">Low sodium</button>
-                                <button type="button" class="option-chip active">High protein</button>
+                                <button type="button" class="option-chip">High protein</button>
                                 <button type="button" class="option-chip">Low fat</button>
                             </div>
                         </div>
                     </div>
 
-                    <div class="option-group" data-select="multi" data-profile-field="allergies">
-                        <span class="group-label">Allergies / ingredients to avoid</span>
+                    <div class="option-group" role="group" aria-labelledby="allergiesLabel" data-select="multi" data-profile-field="allergies">
+                        <span class="group-label" id="allergiesLabel">Allergies / ingredients to avoid</span>
                         <div class="option-list">
-                            <button type="button" class="option-chip active">Peanuts</button>
+                            <button type="button" class="option-chip">Peanuts</button>
                             <button type="button" class="option-chip">Gluten</button>
                             <button type="button" class="option-chip">Dairy</button>
                             <button type="button" class="option-chip">Soy</button>
                             <button type="button" class="option-chip">Tree nuts</button>
                             <button type="button" class="option-chip">Eggs</button>
                         </div>
-                    </div>
-
-                    <div class="targets-box">
-                        <div class="targets-head">✨ Your estimated daily targets</div>
-                        <div class="targets-row">
-                            <div><span>Calories</span><strong id="targetCalories">2,300 kcal</strong></div>
-                            <div><span>Protein</span><strong id="targetProtein">82 g</strong></div>
-                            <div><span>Sugar limit</span><strong id="targetSugar">50 g</strong></div>
-                            <div><span>Sodium limit</span><strong id="targetSodium">2,000 mg</strong></div>
+                        <div class="add-avoid-row">
+                            <label class="sr-only" for="customAvoidInput">Add another ingredient to avoid</label>
+                            <input type="text" id="customAvoidInput" maxlength="80" placeholder="Add another ingredient to avoid">
+                            <button type="button" class="btn-outline" id="addAvoidBtn">Add</button>
                         </div>
                     </div>
 
+                    </fieldset>
+
                     <p id="profileMessage" class="auth-message" role="alert" hidden></p>
                     <div class="form-footer">
-                        <button type="button" class="btn-primary" id="saveProfileBtn">Save profile</button>
-                        <small>General guidance only, not medical advice.</small>
+                        <button type="submit" class="btn-primary" id="saveProfileBtn" disabled>Save profile</button>
+                        <small>Age, sex, height and weight are saved for this form only and are not used in product matching.</small>
                     </div>
 
-                </div>
+                </form>
 
 
                 <!-- Account + Saved -->
@@ -187,7 +175,7 @@
                                 <label for="accName">Full name</label>
                                 <div class="input-box">
                                     <span>👤</span>
-                                    <input type="text" id="accName" placeholder="Your full name" value="Sample User">
+                                    <input type="text" id="accName" placeholder="Your full name">
                                 </div>
                             </div>
 
@@ -195,7 +183,7 @@
                                 <label for="accEmail">Email</label>
                                 <div class="input-box">
                                     <span>✉</span>
-                                    <input type="email" id="accEmail" placeholder="you@example.com" value="you@example.com">
+                                    <input type="email" id="accEmail" placeholder="you@example.com">
                                 </div>
                             </div>
                         </div>
@@ -227,22 +215,7 @@
                     <div class="account-side">
                         <div class="saved-card">
                             <h2>Recently saved</h2>
-                            <div class="saved-item">
-                                <div class="saved-thumb">🥛</div>
-                                <div class="saved-text"><strong>Amul Gold Full Cream Milk</strong><span>500 ml</span></div>
-                                <span class="nutri-badge nutri-b">B</span>
-                            </div>
-                            <div class="saved-item">
-                                <div class="saved-thumb">🥣</div>
-                                <div class="saved-text"><strong>Kellogg's Corn Flakes</strong><span>475 g</span></div>
-                                <span class="nutri-badge nutri-c">C</span>
-                            </div>
-                            <div class="saved-item">
-                                <div class="saved-thumb">🍜</div>
-                                <div class="saved-text"><strong>Maggi 2-Minute Masala Noodles</strong><span>70 g</span></div>
-                                <span class="nutri-badge nutri-d">D</span>
-                            </div>
-                            <a href="#" class="link-green">View all saved products</a>
+                            <p>Your saved product list is not available yet.</p>
                         </div>
 
                         <button type="button" class="btn-danger full" id="logoutBtn">Log out</button>

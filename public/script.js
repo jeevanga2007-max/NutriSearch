@@ -91,9 +91,33 @@ async function getFromServer(url) {
     const data = await response.json().catch(function () { return {}; });
 
     if (!response.ok) {
-        throw new Error(data.error || "Something went wrong. Please try again.");
+        const error = new Error(data.error || "Something went wrong. Please try again.");
+        error.status = response.status;
+        throw error;
     }
 
+    return data;
+}
+
+async function postToServer(url, body) {
+    let response;
+    try {
+        response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "same-origin",
+            body: JSON.stringify(body || {})
+        });
+    } catch (error) {
+        throw new Error("Could not reach the server. Please try again.");
+    }
+    const data = await response.json().catch(function () { return {}; });
+    if (!response.ok) {
+        const error = new Error(data.error || "Something went wrong. Please try again.");
+        error.status = response.status;
+        error.code = data.code;
+        throw error;
+    }
     return data;
 }
 
@@ -255,12 +279,10 @@ if (productLayout) {
         }));
     }
 
-    const summary = document.getElementById("detailSummary");
-    if (summary) summary.textContent = product.summary || "";
-
     function showProduct(product) {
 
         document.title = product.name + " — NutriSearch";
+        document.getElementById("detailSummary").textContent = product.summary || "";
         document.getElementById("detailBrand").textContent = product.brand;
         document.getElementById("detailName").textContent = product.name;
         document.getElementById("detailScore").textContent =
@@ -286,6 +308,113 @@ if (productLayout) {
         productLayout.hidden = false;
     }
 
+    function renderAlternatives(items) {
+        const container = document.getElementById("alternativeList");
+        container.replaceChildren(...items.map(function (item) {
+            const card = document.createElement("article");
+            card.className = "alternative-card";
+            if (isSafeImage(item.image)) {
+                const image = document.createElement("img");
+                image.className = "alternative-image";
+                image.src = item.image;
+                image.alt = "";
+                card.append(image);
+            }
+
+            const link = document.createElement("a");
+            link.href = "product.html?code=" + encodeURIComponent(item.code) +
+                "&q=" + encodeURIComponent(params.get("q") || "");
+            const title = document.createElement("h4");
+            title.textContent = [item.brand, item.name].filter(Boolean).join(" · ");
+            link.append(title);
+            card.append(link);
+
+            const note = document.createElement("p");
+            note.className = item.status === "uncertain" ? "alternative-caution" : "";
+            note.textContent = item.status === "uncertain"
+                ? "Uncertain product information — check the full label and allergen details."
+                : "Similar catalog item; review its product information.";
+            card.append(note);
+
+            if (item.reasons.length) {
+                const list = document.createElement("ul");
+                item.reasons.forEach(function (reason) {
+                    const line = document.createElement("li");
+                    line.textContent = reason;
+                    list.append(line);
+                });
+                card.append(list);
+            }
+            return card;
+        }));
+    }
+
+    function showAssessmentUnavailable(error) {
+        const status = document.getElementById("assessmentStatus");
+        const note = document.getElementById("assessmentAiNote");
+        status.className = "assessment-status incomplete";
+        const message = document.createElement("span");
+        if (error.status === 401) {
+            message.textContent = "Sign in to assess this product against your saved preferences. ";
+            const link = document.createElement("a");
+            link.href = "login.html";
+            link.textContent = "Sign in";
+            status.replaceChildren(message, link);
+        } else if (error.code === "PROFILE_REQUIRED") {
+            message.textContent = "Add optional food preferences to your profile, then revisit this product. ";
+            const link = document.createElement("a");
+            link.href = "profile.html";
+            link.textContent = "Add preferences";
+            status.replaceChildren(message, link);
+        } else {
+            status.textContent = "Personalized assessment is unavailable. Product details are still shown above.";
+        }
+        note.textContent = "";
+    }
+
+    async function loadAssessment() {
+        const section = document.getElementById("personalizedAssessment");
+        const status = document.getElementById("assessmentStatus");
+        const note = document.getElementById("assessmentAiNote");
+        const reasons = document.getElementById("assessmentReasons");
+        const alternativesMessage = document.getElementById("alternativesMessage");
+        status.textContent = "Loading your saved preferences and product data...";
+        try {
+            const data = await postToServer("/api/products/" + encodeURIComponent(code) + "/assessment", {});
+            const assessment = data.assessment;
+            status.className = "assessment-status";
+            if (assessment.status === "caution" || assessment.allergyStatus === "possible_conflict") {
+                status.classList.add("caution");
+                status.textContent = "Caution: a possible preference or ingredient conflict needs your attention.";
+            } else if (assessment.status === "insufficient_data" || assessment.allergyStatus === "incomplete" ||
+                       assessment.allergyStatus === "no_possible_match") {
+                status.classList.add("incomplete");
+                status.textContent = "Not enough information to confirm alignment with your selected preferences.";
+            } else {
+                status.textContent = "This product appears to match one or more selected preferences. Review the facts below.";
+            }
+
+            note.textContent = data.ai.available
+                ? "AI explanation: " + data.ai.explanation
+                : data.ai.message + " The factual assessment and deterministic alternatives are shown below.";
+            reasons.replaceChildren(...assessment.reasons.map(function (reason) {
+                const item = document.createElement("li");
+                item.textContent = reason.text;
+                if (reason.kind === "caution") item.className = "reason-caution";
+                if (reason.kind === "unknown") item.className = "reason-unknown";
+                return item;
+            }));
+
+            renderAlternatives(data.alternatives);
+            alternativesMessage.textContent = data.withheldAlternativeCount
+                ? "Some similar products were not promoted because their ingredient, allergen or diet data was incomplete."
+                : data.alternativesMessage;
+            section.dataset.assessmentStatus = assessment.status;
+        } catch (error) {
+            showAssessmentUnavailable(error);
+        }
+    }
+
     async function loadProduct() {
 
         if (!code) {
@@ -297,6 +426,7 @@ if (productLayout) {
             const product = await getFromServer("/api/products/" + encodeURIComponent(code));
             showStatus("");
             showProduct(product);
+            loadAssessment();
         } catch (error) {
             showStatus(error.message, true);
         }
@@ -525,66 +655,63 @@ const profile = document.getElementById("profile");
 
 function readProfileForm() {
     const data = {
-        age: Number(document.getElementById("age").value),
+        age: document.getElementById("age").value,
         sex: document.getElementById("sex").value,
-        height: Number(document.getElementById("height").value),
-        weight: Number(document.getElementById("weight").value)
+        height: document.getElementById("height").value,
+        weight: document.getElementById("weight").value
     };
     document.querySelectorAll(".option-group[data-profile-field]").forEach(function (group) {
         const field = group.dataset.profileField;
         const activeTexts = Array.from(group.querySelectorAll(".option-chip.active")).map(function (c) {
-            return c.textContent.trim();
+            return c.dataset.value !== undefined ? c.dataset.value : c.textContent.trim();
         });
         data[field] = group.dataset.select === "single" ? (activeTexts[0] || "") : activeTexts;
     });
     return data;
 }
 
-function updateDailyTargets(p) {
-    const caloriesEl = document.getElementById("targetCalories");
-    const proteinEl = document.getElementById("targetProtein");
-    const sugarEl = document.getElementById("targetSugar");
-    const sodiumEl = document.getElementById("targetSodium");
-    if (!caloriesEl || !p) return;
-
-    const age = Number(p.age) || 25;
-    const height = Number(p.height) || 170;
-    const weight = Number(p.weight) || 65;
-    const sexOffset = p.sex === "Female" ? -161 : p.sex === "Male" ? 5 : -78;
-    const bmr = 10 * weight + 6.25 * height - 5 * age + sexOffset;
-    const activityMap = { "Sedentary": 1.2, "Lightly active": 1.375, "Moderately active": 1.55, "Very active": 1.725 };
-    const goalOffset = p.goal === "Lose weight" ? -400 : p.goal === "Build muscle" ? 250 : 0;
-    const calories = Math.max(1200, Math.round((bmr * (activityMap[p.activityLevel] || 1.55) + goalOffset) / 50) * 50);
-
-    const focus = Array.isArray(p.focusOn) ? p.focusOn : [];
-    const proteinFactor = (p.goal === "Build muscle" || focus.includes("High protein")) ? 1.6 : 1.0;
-    const protein = Math.round(weight * proteinFactor);
-    const sugar = focus.includes("Low sugar") ? 30 : Math.round((calories * 0.1) / 4);
-    const sodium = focus.includes("Low sodium") ? 1500 : 2000;
-
-    caloriesEl.textContent = calories.toLocaleString() + " kcal";
-    proteinEl.textContent = protein + " g";
-    sugarEl.textContent = sugar + " g";
-    sodiumEl.textContent = sodium.toLocaleString() + " mg";
+function addProfileChip(group, value, active) {
+    const optionList = group.querySelector(".option-list");
+    const existing = Array.from(optionList.querySelectorAll(".option-chip"))
+        .find(function (chip) { return chip.textContent.trim().toLocaleLowerCase() === value.toLocaleLowerCase(); });
+    if (existing) {
+        existing.classList.toggle("active", active);
+        existing.setAttribute("aria-pressed", String(active));
+        return;
+    }
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "option-chip";
+    chip.textContent = value;
+    chip.classList.toggle("active", active);
+    chip.setAttribute("aria-pressed", String(active));
+    optionList.append(chip);
 }
 
 function applyProfileForm(p) {
-    if (!p) return;
-    if (p.age !== undefined) document.getElementById("age").value = p.age;
-    if (p.sex !== undefined) document.getElementById("sex").value = p.sex;
-    if (p.height !== undefined) document.getElementById("height").value = p.height;
-    if (p.weight !== undefined) document.getElementById("weight").value = p.weight;
+    const profileData = p || {};
+    for (const id of ["age", "sex", "height", "weight"]) {
+        const control = document.getElementById(id);
+        const value = profileData[id];
+        control.value = value === undefined || value === null ? "" : value;
+    }
 
     document.querySelectorAll(".option-group[data-profile-field]").forEach(function (group) {
         const field = group.dataset.profileField;
-        if (p[field] === undefined) return;
-        const selected = Array.isArray(p[field]) ? p[field] : [p[field]];
+        const selected = Array.isArray(profileData[field]) ? profileData[field] :
+            (profileData[field] ? [profileData[field]] : []);
         group.querySelectorAll(".option-chip").forEach(function (chip) {
-            chip.classList.toggle("active", selected.includes(chip.textContent.trim()));
+            const chipValue = chip.dataset.value !== undefined ? chip.dataset.value : chip.textContent.trim();
+            const active = selected.some(function (value) {
+                return value.toLocaleLowerCase() === chipValue.toLocaleLowerCase();
+            }) || (group.dataset.select === "single" && !selected.length && chipValue === "");
+            chip.classList.toggle("active", active);
+            chip.setAttribute("aria-pressed", String(active));
         });
+        if (field === "allergies") {
+            selected.forEach(function (value) { addProfileChip(group, value, true); });
+        }
     });
-
-    updateDailyTargets(p);
 }
 
 function injectAdminNavLink(user) {
@@ -620,11 +747,16 @@ if (profile) {
         if (accName) accName.value = data.user.name;
         if (accEmail) accEmail.value = data.user.email;
 
-        if (data.user.profile) {
-            applyProfileForm(data.user.profile);
-        } else {
-            updateDailyTargets(readProfileForm());
-        }
+        applyProfileForm(data.user.profile);
+        const controls = document.getElementById("profileControls");
+        if (controls) controls.disabled = false;
+        const personalisationForm = document.getElementById("personalisationForm");
+        if (personalisationForm) personalisationForm.setAttribute("aria-busy", "false");
+        const loadStatus = document.getElementById("profileLoadStatus");
+        if (loadStatus) loadStatus.textContent = data.user.profile
+            ? "Saved preferences loaded."
+            : "No preferences saved yet. All fields are optional.";
+        if (saveProfileBtn) saveProfileBtn.disabled = false;
 
         const loginLink = document.querySelector(".navbar .login-btn");
         if (loginLink) {
@@ -635,7 +767,17 @@ if (profile) {
                 logoutAndRedirect("index.html");
             });
         }
-    }).catch(function () { window.location.href = "login.html"; });
+    }).catch(function (error) {
+        if (error.status === 401) {
+            window.location.href = "login.html";
+            return;
+        }
+        const loadStatus = document.getElementById("profileLoadStatus");
+        if (loadStatus) {
+            loadStatus.textContent = error.message || "Could not load your profile.";
+            loadStatus.classList.add("error");
+        }
+    });
 } else {
     fetch("/api/auth/me", { credentials: "same-origin" }).then(function (response) {
         if (!response.ok) return null;
@@ -673,26 +815,39 @@ document.querySelectorAll(".option-group").forEach(function (group) {
 
     const mode = group.dataset.select;
 
-    group.querySelectorAll(".option-chip").forEach(function (chip) {
-        chip.addEventListener("click", function () {
-
-            if (mode === "single") {
-                group.querySelectorAll(".option-chip").forEach(function (c) {
-                    c.classList.remove("active");
-                });
-                chip.classList.add("active");
-            } else {
-                chip.classList.toggle("active");
-            }
-            if (profile) updateDailyTargets(readProfileForm());
-        });
+    group.addEventListener("click", function (event) {
+        const chip = event.target.closest(".option-chip");
+        if (!chip || !group.contains(chip)) return;
+        if (mode === "single") {
+            group.querySelectorAll(".option-chip").forEach(function (item) {
+                item.classList.remove("active");
+                item.setAttribute("aria-pressed", "false");
+            });
+            chip.classList.add("active");
+            chip.setAttribute("aria-pressed", "true");
+        } else {
+            const active = chip.classList.toggle("active");
+            chip.setAttribute("aria-pressed", String(active));
+        }
     });
 });
 
-if (profile) {
-    ["age", "sex", "height", "weight"].forEach(function (id) {
-        const el = document.getElementById(id);
-        if (el) el.addEventListener("change", function () { updateDailyTargets(readProfileForm()); });
+const addAvoidBtn = document.getElementById("addAvoidBtn");
+const customAvoidInput = document.getElementById("customAvoidInput");
+function addAvoidItem() {
+    const value = customAvoidInput.value.trim();
+    if (!value) return;
+    const group = document.querySelector('.option-group[data-profile-field="allergies"]');
+    addProfileChip(group, value, true);
+    customAvoidInput.value = "";
+}
+if (addAvoidBtn && customAvoidInput) {
+    addAvoidBtn.addEventListener("click", addAvoidItem);
+    customAvoidInput.addEventListener("keydown", function (event) {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            addAvoidItem();
+        }
     });
 }
 
@@ -706,8 +861,10 @@ function showProfileMessage(message, isSuccess) {
     profileMessage.hidden = false;
 }
 
-if (saveProfileBtn) {
-    saveProfileBtn.addEventListener("click", async function () {
+const personalisationForm = document.getElementById("personalisationForm");
+if (personalisationForm) {
+    personalisationForm.addEventListener("submit", async function (event) {
+        event.preventDefault();
         if (profileMessage) profileMessage.hidden = true;
         saveProfileBtn.disabled = true;
         const originalText = saveProfileBtn.textContent;

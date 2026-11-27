@@ -3,6 +3,12 @@ const assert = require("node:assert");
 const crypto = require("node:crypto");
 const { MongoClient, ObjectId } = require("mongodb");
 
+process.env.MONGODB_URI = "mongodb://127.0.0.1:27017";
+process.env.SESSION_SECRET = "test-session-secret-with-more-than-32-characters";
+process.env.GOOGLE_CLIENT_ID = "test-google-client-id";
+delete process.env.OPENAI_API_KEY;
+delete process.env.OPENAI_MODEL;
+
 // In-memory collections for isolated auth + admin tests
 function makeCollection(uniqueFields) {
     const items = [];
@@ -14,6 +20,11 @@ function makeCollection(uniqueFields) {
                 if (String(item._id) !== String(v)) return false;
             } else if (k === "resetTokenExpiresAt" && v && v.$gt) {
                 if (!item.resetTokenExpiresAt || item.resetTokenExpiresAt <= v.$gt) return false;
+            } else if (v && typeof v === "object" && v.$ne !== undefined) {
+                if (String(item[k]) === String(v.$ne)) return false;
+            } else if (v && typeof v === "object" && Array.isArray(v.$in)) {
+                const values = Array.isArray(item[k]) ? item[k] : [item[k]];
+                if (!v.$in.some(function (candidate) { return values.includes(candidate); })) return false;
             } else if (v instanceof RegExp) {
                 if (!v.test(String(item[k] || ""))) return false;
             } else if (item[k] !== v) {
@@ -29,20 +40,12 @@ function makeCollection(uniqueFields) {
             const doc = items.find(function (item) { return matches(item, query); });
             if (!doc) return null;
             if (!options || !options.projection) return { ...doc };
-            const projected = { _id: doc._id };
-            for (const [k, v] of Object.entries(options.projection)) {
-                if (v) projected[k] = doc[k];
-            }
-            return projected;
+            return project(doc, options.projection);
         },
         find(query, options) {
             let results = items.filter(function (item) { return matches(item, query); }).map(function (doc) {
                 if (!options || !options.projection) return { ...doc };
-                const projected = { _id: doc._id };
-                for (const [k, v] of Object.entries(options.projection)) {
-                    if (v) projected[k] = doc[k];
-                }
-                return projected;
+                return project(doc, options.projection);
             });
             return {
                 sort() { return this; },
@@ -86,6 +89,23 @@ function makeCollection(uniqueFields) {
             return { deletedCount: 1 };
         }
     };
+}
+
+function project(doc, projection) {
+    const fields = Object.entries(projection);
+    if (fields.some(function ([key, value]) { return key !== "_id" && value === 1; })) {
+        const projected = {};
+        if (projection._id !== 0 && doc._id !== undefined) projected._id = doc._id;
+        fields.forEach(function ([key, value]) {
+            if (value === 1 && doc[key] !== undefined) projected[key] = doc[key];
+        });
+        return projected;
+    }
+    const projected = { ...doc };
+    fields.forEach(function ([key, value]) {
+        if (!value) delete projected[key];
+    });
+    return projected;
 }
 
 const collections = {
@@ -343,6 +363,85 @@ test("personalized profile details persist across logout and next login", async 
     assert.deepStrictEqual((await meRes.json()).user.profile, customProfile);
 });
 
+test("profile fields are optional, normalized, validated, and scoped to the session account", async function () {
+    const aliceLogin = await fetch(base + "/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: "alice@example.com", password: "newpassword123" })
+    });
+    const aliceCookie = aliceLogin.headers.get("set-cookie").split(";")[0];
+    const charlieSignup = await fetch(base + "/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "Charlie Test", email: "charlie@example.com", password: "password123" })
+    });
+    const charlie = await charlieSignup.json();
+    const charlieCookie = charlieSignup.headers.get("set-cookie").split(";")[0];
+
+    const profile = {
+        age: "",
+        sex: " Female ",
+        height: null,
+        weight: "",
+        activityLevel: "",
+        goal: "",
+        diet: " Vegan ",
+        focusOn: ["Low sugar", "Low sugar"],
+        allergies: ["Sesame", " sesame "]
+    };
+    const saveRes = await fetch(base + "/api/auth/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Cookie: aliceCookie },
+        body: JSON.stringify({ userId: charlie.user.id, profile })
+    });
+    assert.strictEqual(saveRes.status, 200);
+    const saved = await saveRes.json();
+    assert.deepStrictEqual(saved.user.profile, {
+        age: null,
+        sex: "Female",
+        height: null,
+        weight: null,
+        activityLevel: null,
+        goal: null,
+        diet: "Vegan",
+        focusOn: ["Low sugar"],
+        allergies: ["Sesame"]
+    });
+    assert.strictEqual(Object.hasOwn(saved.user, "passwordHash"), false);
+    assert.strictEqual(Object.hasOwn(saved.user, "googleId"), false);
+
+    const invalidRes = await fetch(base + "/api/auth/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Cookie: aliceCookie },
+        body: JSON.stringify({ profile: { focusOn: ["low sugar"] } })
+    });
+    assert.strictEqual(invalidRes.status, 400);
+
+    const outOfRangeRes = await fetch(base + "/api/auth/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Cookie: aliceCookie },
+        body: JSON.stringify({ profile: { age: 121 } })
+    });
+    assert.strictEqual(outOfRangeRes.status, 400);
+
+    const invalidArrayRes = await fetch(base + "/api/auth/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Cookie: aliceCookie },
+        body: JSON.stringify({ profile: { focusOn: "Low sugar" } })
+    });
+    assert.strictEqual(invalidArrayRes.status, 400);
+
+    const invalidBodyRes = await fetch(base + "/api/auth/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Cookie: aliceCookie },
+        body: "null"
+    });
+    assert.strictEqual(invalidBodyRes.status, 400);
+
+    const charlieMe = await fetch(base + "/api/auth/me", { headers: { Cookie: charlieCookie } });
+    assert.strictEqual((await charlieMe.json()).user.profile, null);
+});
+
 test("default admin controls admin access and admins review suggested products", async function () {
     // 1. Normal user cannot access admin endpoints
     const aliceLogin = await fetch(base + "/api/auth/login", {
@@ -493,4 +592,68 @@ test("default admin controls admin access and admins review suggested products",
         body: JSON.stringify({ email: "alice@example.com", password: "newpassword123" })
     });
     assert.strictEqual(deletedLogin.status, 401);
+});
+
+test("assessment endpoint reads the session profile and falls back without the AI key", async function () {
+    const login = await fetch(base + "/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: "charlie@example.com", password: "password123" })
+    });
+    const cookie = login.headers.get("set-cookie").split(";")[0];
+    const savedProfile = await fetch(base + "/api/auth/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Cookie: cookie },
+        body: JSON.stringify({ profile: { focusOn: ["Low sugar"], allergies: ["Sesame"] } })
+    });
+    assert.strictEqual(savedProfile.status, 200);
+
+    await collections.products.insertOne({
+        code: "8901234567892",
+        product_name: "Rice crackers",
+        brands: "Test Brand",
+        categories_en: "Crackers",
+        categories_tags: ["en:crackers"],
+        ingredients_text: "Rice, sugar",
+        allergens: "None declared",
+        allergens_tags: [],
+        traces: "None declared",
+        traces_tags: [],
+        ingredients_analysis_tags: ["en:vegan"],
+        nutriscore_grade: "b",
+        "sugars_100g": 2,
+        "salt_100g": 0.1,
+        "proteins_100g": 11,
+        "fat_100g": 2
+    });
+    await collections.products.insertOne({
+        code: "8901234567893",
+        product_name: "Plain rice crackers",
+        brands: "Catalog Brand",
+        categories_en: "Crackers",
+        categories_tags: ["en:crackers"],
+        ingredients_text: "Rice",
+        allergens: "None declared",
+        allergens_tags: [],
+        traces: "None declared",
+        traces_tags: [],
+        ingredients_analysis_tags: ["en:vegan"],
+        "sugars_100g": 1,
+        "salt_100g": 0.1,
+        "proteins_100g": 12,
+        "fat_100g": 1
+    });
+    const res = await fetch(base + "/api/products/8901234567892/assessment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Cookie: cookie },
+        body: "{}"
+    });
+    const body = await res.json();
+
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(body.ai.available, false);
+    assert.strictEqual(body.alternatives[0].code, "8901234567893");
+    assert.strictEqual(body.assessment.allergyStatus, "no_possible_match");
+    assert.ok(body.assessment.reasons.some(function (reason) { return reason.id === "focus-sugar-match"; }));
+    assert.strictEqual(Object.hasOwn(body, "profile"), false);
 });
