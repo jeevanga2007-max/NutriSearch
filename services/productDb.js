@@ -151,6 +151,24 @@ function cleanText(value, max, label) {
     return text;
 }
 
+function validateNutritionFields(input, targetSet, targetUnset) {
+    Object.keys(NUMBER_FIELDS).forEach(function (field) {
+        if (input[field] === undefined) return;
+        const rule = NUMBER_FIELDS[field];
+
+        if (input[field] === "" || input[field] === null) {
+            if (targetUnset) targetUnset[rule.key] = "";
+            return;
+        }
+
+        const value = Number(input[field]);
+        if (!Number.isFinite(value) || value < 0 || value > rule.max) {
+            throw badRequest("Each nutrition value must be a number from 0 to " + rule.max + ".");
+        }
+        targetSet[rule.key] = value;
+    });
+}
+
 function buildProductDoc(input) {
     const code = String(input.code || "").trim();
     if (!/^\d{8,14}$/.test(code)) throw badRequest("Barcode must be 8 to 14 digits.");
@@ -168,19 +186,85 @@ function buildProductDoc(input) {
     if (size) doc.quantity = size;
     if (ingredients) doc.ingredients_text = ingredients;
 
-    Object.keys(NUMBER_FIELDS).forEach(function (field) {
-        if (input[field] === undefined || input[field] === "") return;
-
-        const rule = NUMBER_FIELDS[field];
-        const value = Number(input[field]);
-
-        if (!Number.isFinite(value) || value < 0 || value > rule.max) {
-            throw badRequest("Each nutrition value must be a number from 0 to " + rule.max + ".");
-        }
-        doc[rule.key] = value;
-    });
+    validateNutritionFields(input, doc, null);
 
     return doc;
+}
+
+function toAdminProduct(doc) {
+    return {
+        id: doc._id ? String(doc._id) : "",
+        code: doc.code,
+        name: String(doc.product_name || "Unnamed product").trim(),
+        brand: doc.brands || "",
+        size: doc.quantity || "",
+        ingredients: doc.ingredients_text || "",
+        score: cleanScore(doc.nutriscore_grade),
+        image: safeImage(doc.image_small_url || doc.image_url),
+        energy: doc["energy-kcal_100g"] ?? null,
+        fat: doc["fat_100g"] ?? null,
+        saturatedFat: doc["saturated-fat_100g"] ?? null,
+        carbohydrates: doc["carbohydrates_100g"] ?? null,
+        sugars: doc["sugars_100g"] ?? null,
+        fiber: doc["fiber_100g"] ?? null,
+        proteins: doc["proteins_100g"] ?? null,
+        salt: doc["salt_100g"] ?? null,
+        source: doc.source || "",
+        addedAt: doc.addedAt || null,
+        updatedAt: doc.updatedAt || null,
+        updatedBy: doc.updatedBy || null
+    };
+}
+
+function applyOptionalText($set, $unset, rawValue, max, label, dbField) {
+    if (rawValue === undefined) return;
+    const text = cleanText(rawValue, max, label);
+    if (text) $set[dbField] = text;
+    else $unset[dbField] = "";
+}
+
+function buildProductUpdate(input) {
+    const $set = {};
+    const $unset = {};
+
+    if (input.name !== undefined) {
+        const name = cleanText(input.name, 100, "Product name");
+        if (name.length < 2) throw badRequest("Please enter the product name.");
+        $set.product_name = name;
+    }
+
+    applyOptionalText($set, $unset, input.brand, 60, "Brand", "brands");
+    applyOptionalText($set, $unset, input.size, 30, "Pack size", "quantity");
+    applyOptionalText($set, $unset, input.ingredients, 1500, "Ingredients", "ingredients_text");
+
+    if (input.score !== undefined) {
+        if (input.score === "" || input.score === null) {
+            $unset.nutriscore_grade = "";
+        } else {
+            const grade = cleanScore(input.score);
+            if (!grade) throw badRequest("Nutri-Score must be A, B, C, D, or E.");
+            $set.nutriscore_grade = grade;
+        }
+    }
+
+    if (input.image !== undefined) {
+        const rawImg = cleanText(input.image, 500, "Photo URL");
+        if (!rawImg) {
+            $unset.image_url = "";
+            $unset.image_small_url = "";
+        } else {
+            if (!/^https?:\/\/.+/i.test(rawImg)) {
+                throw badRequest("Photo URL must start with http:// or https://.");
+            }
+            const normalized = safeImage(rawImg);
+            $set.image_url = normalized;
+            $set.image_small_url = normalized;
+        }
+    }
+
+    validateNutritionFields(input, $set, $unset);
+
+    return { $set, $unset };
 }
 
 async function suggestProduct(input, submittedBy) {
@@ -222,4 +306,14 @@ async function addProduct(input) {
     return suggestProduct(input);
 }
 
-module.exports = { searchProducts, getProduct, addProduct, suggestProduct, getCollection, getSuggestionsCollection };
+module.exports = {
+    searchProducts,
+    getProduct,
+    addProduct,
+    suggestProduct,
+    getCollection,
+    getSuggestionsCollection,
+    escapeRegex,
+    toAdminProduct,
+    buildProductUpdate
+};

@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory Management — NutriSearch</title>
+
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+          rel="stylesheet">
+</head>
+
+<body>
+
+    <!-- Navigation Bar -->
+    <header class="navbar">
+        <a href="index.html" class="logo">
+            <span>NutriSearch</span>
+        </a>
+
+        <nav class="nav-links">
+            <a href="index.html">Home</a>
+            <a href="profile.html">Saved products</a>
+            <a href="index.html">About</a>
+            <a href="login.html" class="login-btn">Log in</a>
+        </nav>
+    </header>
+
+
+    <main>
+        <section class="profile-page" id="inventoryPage" hidden>
+            <div class="page-container">
+
+                <!-- Inventory header -->
+                <div class="profile-header">
+                    <div class="profile-avatar" id="inventoryAvatar">I</div>
+                    <div class="profile-id">
+                        <h1>Inventory Management</h1>
+                        <p id="inventoryIdentity">Checking permissions...</p>
+                    </div>
+                    <span class="role-badge is-owner" id="inventoryRoleBadge">Admin</span>
+                </div>
+
+                <!-- Summary Stats -->
+                <div class="stat-row">
+                    <div class="stat-card">
+                        <div class="feature-icon">📦</div>
+                        <div><strong id="statInventory">0</strong><span>Products in inventory</span></div>
+                    </div>
+                </div>
+
+                <!-- Inventory Management -->
+                <div class="personalise-card" id="inventoryCard">
+                    <div class="personalise-head">
+                        <div>
+                            <h2>Catalog inventory</h2>
+                            <p>View product photos, search the catalog, and edit or delete items.</p>
+                        </div>
+                        <form class="inventory-search-form" id="inventorySearchForm">
+                            <input type="search" id="inventorySearchInput" class="inventory-search-input"
+                                   placeholder="Search name, brand, or barcode..." aria-label="Search inventory">
+                            <button type="submit" class="btn-outline">Search</button>
+                            <button type="button" class="btn-outline" id="inventoryClearBtn" hidden>Clear</button>
+                        </form>
+                    </div>
+
+                    <p id="adminInventoryMsg" class="auth-message" role="alert" hidden></p>
+                    <div class="admin-list" id="inventoryList">
+                        <p class="status-message">Loading inventory...</p>
+                    </div>
+
+                    <div class="inventory-pagination" id="inventoryPagination" hidden>
+                        <button type="button" class="btn-outline" id="inventoryPrevBtn">Previous</button>
+                        <span class="inventory-page-info" id="inventoryPageInfo">Page 1 of 1</span>
+                        <button type="button" class="btn-outline" id="inventoryNextBtn">Next</button>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- Edit Inventory Item Modal -->
+        <div class="admin-modal" id="inventoryEditModal" role="dialog" aria-modal="true" aria-labelledby="inventoryEditTitle" hidden>
+            <div class="admin-modal-card">
+                <div class="admin-modal-head">
+                    <h2 id="inventoryEditTitle">Edit inventory item</h2>
+                    <button type="button" class="admin-modal-close" id="inventoryEditClose" aria-label="Close modal">&times;</button>
+                </div>
+
+                <p id="inventoryEditMsg" class="auth-message" role="alert" hidden></p>
+
+                <form id="inventoryEditForm" class="inventory-edit-form">
+                    <div class="inventory-edit-photo-row">
+                        <div class="inventory-thumb inventory-thumb-lg" id="editProductPhotoPreview">
+                            <span>No photo</span>
+                        </div>
+                        <div class="form-field" style="flex:1;">
+                            <label for="editProductImage">Product photo URL</label>
+                            <div class="input-box">
+                                <input id="editProductImage" name="image" type="url" maxlength="500" placeholder="https://...">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="two-col">
+                        <div class="form-field">
+                            <label for="editProductCode">Barcode</label>
+                            <div class="input-box">
+                                <input id="editProductCode" name="code" readonly disabled>
+                            </div>
+                        </div>
+
+                        <div class="form-field">
+                            <label for="editProductScore">Nutri-Score</label>
+                            <div class="input-box">
+                                <select id="editProductScore" name="score">
+                                    <option value="">Not set</option>
+                                    <option value="a">A</option>
+                                    <option value="b">B</option>
+                                    <option value="c">C</option>
+                                    <option value="d">D</option>
+                                    <option value="e">E</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-field">
+                        <label for="editProductName">Product name</label>
+                        <div class="input-box">
+                            <input id="editProductName" name="name" required minlength="2" maxlength="100">
+                        </div>
+                    </div>
+
+                    <div class="two-col">
+                        <div class="form-field">
+                            <label for="editProductBrand">Brand</label>
+                            <div class="input-box">
+                                <input id="editProductBrand" name="brand" maxlength="60">
+                            </div>
+                        </div>
+
+                        <div class="form-field">
+                            <label for="editProductSize">Pack size</label>
+                            <div class="input-box">
+                                <input id="editProductSize" name="size" maxlength="30" placeholder="e.g. 500 g">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-field">
+                        <label for="editProductIngredients">Ingredients</label>
+                        <div class="input-box">
+                            <textarea id="editProductIngredients" name="ingredients" rows="3" maxlength="1500"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="section-label">Nutrition per 100 g (optional)</div>
+
+                    <div class="two-col">
+                        <div class="form-field">
+                            <label for="editProductEnergy">Energy (kcal)</label>
+                            <div class="input-box">
+                                <input id="editProductEnergy" name="energy" type="number" step="any" min="0" max="900">
+                            </div>
+                        </div>
+
+                        <div class="form-field">
+                            <label for="editProductFat">Fat (g)</label>
+                            <div class="input-box">
+                                <input id="editProductFat" name="fat" type="number" step="any" min="0" max="100">
+                            </div>
+                        </div>
+
+                        <div class="form-field">
+                            <label for="editProductSaturatedFat">Saturated fat (g)</label>
+                            <div class="input-box">
+                                <input id="editProductSaturatedFat" name="saturatedFat" type="number" step="any" min="0" max="100">
+                            </div>
+                        </div>
+
+                        <div class="form-field">
+                            <label for="editProductCarbs">Carbohydrates (g)</label>
+                            <div class="input-box">
+                                <input id="editProductCarbs" name="carbohydrates" type="number" step="any" min="0" max="100">
+                            </div>
+                        </div>
+
+                        <div class="form-field">
+                            <label for="editProductSugars">Sugars (g)</label>
+                            <div class="input-box">
+                                <input id="editProductSugars" name="sugars" type="number" step="any" min="0" max="100">
+                            </div>
+                        </div>
+
+                        <div class="form-field">
+                            <label for="editProductFiber">Fibre (g)</label>
+                            <div class="input-box">
+                                <input id="editProductFiber" name="fiber" type="number" step="any" min="0" max="100">
+                            </div>
+                        </div>
+
+                        <div class="form-field">
+                            <label for="editProductProteins">Protein (g)</label>
+                            <div class="input-box">
+                                <input id="editProductProteins" name="proteins" type="number" step="any" min="0" max="100">
+                            </div>
+                        </div>
+
+                        <div class="form-field">
+                            <label for="editProductSalt">Salt (g)</label>
+                            <div class="input-box">
+                                <input id="editProductSalt" name="salt" type="number" step="any" min="0" max="100">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="admin-modal-actions">
+                        <button type="button" class="btn-outline" id="inventoryEditCancel">Cancel</button>
+                        <button type="submit" class="btn-primary" id="inventoryEditSave">Save changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </main>
+
+
+    <!-- Footer -->
+    <footer class="footer">
+        Built for SDG 3 (Good Health &amp; Well-being) and SDG 12
+        (Responsible Consumption)
+    </footer>
+
+    <script src="script.js"></script>
+
+</body>
+</html>

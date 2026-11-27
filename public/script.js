@@ -591,12 +591,20 @@ function injectAdminNavLink(user) {
     if (!user || !user.isAdmin) return;
     const navLinks = document.querySelector(".navbar .nav-links");
     if (!navLinks || navLinks.querySelector(".admin-nav-link")) return;
+    const anchor = navLinks.querySelector(".theme-toggle") || navLinks.querySelector(".login-btn");
+
+    const invLink = document.createElement("a");
+    invLink.href = "inventory.html";
+    invLink.className = "inventory-nav-link";
+    invLink.textContent = "Inventory";
+    if (window.location.pathname.endsWith("/inventory.html")) invLink.classList.add("active");
+    navLinks.insertBefore(invLink, anchor || null);
+
     const link = document.createElement("a");
     link.href = "admin.html";
     link.className = "admin-nav-link";
     link.textContent = "Admin";
     if (window.location.pathname.endsWith("/admin.html")) link.classList.add("active");
-    const anchor = navLinks.querySelector(".theme-toggle") || navLinks.querySelector(".login-btn");
     navLinks.insertBefore(link, anchor || null);
 }
 
@@ -1038,6 +1046,312 @@ if (adminPage) {
             document.getElementById("adminAccessCard").hidden = false;
             await loadAdminUsers();
         }
+    }).catch(function () {
+        window.location.href = "login.html";
+    });
+}
+
+
+/* =========================
+   8. INVENTORY MANAGEMENT (inventory.html)
+========================= */
+
+const inventoryPageEl = document.getElementById("inventoryPage");
+
+if (inventoryPageEl) {
+    let inventoryPage = 1;
+    let inventoryQuery = "";
+    const inventoryLimit = 20;
+    let editingProductCode = null;
+
+    const editModal = document.getElementById("inventoryEditModal");
+    const editForm = document.getElementById("inventoryEditForm");
+    const editPhotoInput = document.getElementById("editProductImage");
+    const editPhotoPreview = document.getElementById("editProductPhotoPreview");
+
+    function setInventoryMsg(el, message, isSuccess) {
+        if (!el) return;
+        el.textContent = message;
+        el.classList.toggle("is-success", Boolean(isSuccess));
+        el.hidden = !message;
+    }
+
+    function renderThumb(container, url, altText) {
+        container.replaceChildren();
+        const cleanUrl = String(url || "").trim();
+        if (!cleanUrl) {
+            const fallback = document.createElement("span");
+            fallback.textContent = "No photo";
+            container.appendChild(fallback);
+            return;
+        }
+        const img = document.createElement("img");
+        img.src = cleanUrl;
+        img.alt = altText || "Product photo";
+        img.loading = "lazy";
+        img.addEventListener("error", function () {
+            container.replaceChildren();
+            const fallback = document.createElement("span");
+            fallback.textContent = "No photo";
+            container.appendChild(fallback);
+        });
+        container.appendChild(img);
+    }
+
+    function closeEditModal() {
+        editingProductCode = null;
+        if (editModal) editModal.hidden = true;
+        setInventoryMsg(document.getElementById("inventoryEditMsg"), "", true);
+    }
+
+    function openEditModal(item) {
+        if (!editModal || !editForm) return;
+        editingProductCode = item.code;
+        document.getElementById("editProductCode").value = item.code || "";
+        document.getElementById("editProductImage").value = item.image || "";
+        renderThumb(editPhotoPreview, item.image, item.name);
+        document.getElementById("editProductName").value = item.name || "";
+        document.getElementById("editProductBrand").value = item.brand || "";
+        document.getElementById("editProductSize").value = item.size || "";
+        document.getElementById("editProductScore").value = item.score || "";
+        document.getElementById("editProductIngredients").value = item.ingredients || "";
+        document.getElementById("editProductEnergy").value = item.energy ?? "";
+        document.getElementById("editProductFat").value = item.fat ?? "";
+        document.getElementById("editProductSaturatedFat").value = item.saturatedFat ?? "";
+        document.getElementById("editProductCarbs").value = item.carbohydrates ?? "";
+        document.getElementById("editProductSugars").value = item.sugars ?? "";
+        document.getElementById("editProductFiber").value = item.fiber ?? "";
+        document.getElementById("editProductProteins").value = item.proteins ?? "";
+        document.getElementById("editProductSalt").value = item.salt ?? "";
+        setInventoryMsg(document.getElementById("inventoryEditMsg"), "", true);
+        editModal.hidden = false;
+        document.getElementById("editProductName").focus();
+    }
+
+    if (editPhotoInput && editPhotoPreview) {
+        editPhotoInput.addEventListener("input", function () {
+            renderThumb(editPhotoPreview, editPhotoInput.value, "Preview");
+        });
+    }
+
+    function renderInventory(data) {
+        const products = data.products || [];
+        const total = data.total || 0;
+        const page = data.page || 1;
+        const limit = data.limit || inventoryLimit;
+        const totalPages = Math.max(1, Math.ceil(total / limit));
+
+        if (!inventoryQuery) {
+            document.getElementById("statInventory").textContent = total;
+        }
+
+        const listEl = document.getElementById("inventoryList");
+        const paginationEl = document.getElementById("inventoryPagination");
+
+        if (products.length === 0) {
+            listEl.replaceChildren();
+            const empty = document.createElement("p");
+            empty.className = "status-message";
+            empty.textContent = inventoryQuery
+                ? "No inventory products match \"" + inventoryQuery + "\"."
+                : "No products found in inventory.";
+            listEl.appendChild(empty);
+            paginationEl.hidden = true;
+            return;
+        }
+
+        listEl.replaceChildren(...products.map(function (item) {
+            const row = document.createElement("div");
+            row.className = "admin-item";
+
+            const main = document.createElement("div");
+            main.className = "inventory-item-main";
+
+            const thumb = document.createElement("div");
+            thumb.className = "inventory-thumb";
+            renderThumb(thumb, item.image, item.name);
+
+            const info = document.createElement("div");
+            info.className = "admin-item-info";
+
+            const head = document.createElement("div");
+            head.className = "admin-item-head";
+            const title = document.createElement("strong");
+            title.textContent = item.name;
+            head.appendChild(title);
+
+            if (item.score) {
+                const badge = document.createElement("span");
+                badge.className = "role-badge " + (item.score === "a" || item.score === "b" ? "is-healthy" : item.score === "c" ? "is-pending" : "is-rejected");
+                badge.textContent = "Nutri-Score " + item.score.toUpperCase();
+                head.appendChild(badge);
+            }
+
+            const meta1 = document.createElement("div");
+            meta1.className = "admin-item-meta";
+            meta1.textContent = [
+                "Barcode: " + item.code,
+                item.brand ? "Brand: " + item.brand : "",
+                item.size ? "Size: " + item.size : "",
+                item.energy !== null ? "Energy: " + item.energy + " kcal/100g" : ""
+            ].filter(Boolean).join(" · ");
+
+            info.append(head, meta1);
+
+            if (item.ingredients) {
+                const meta2 = document.createElement("div");
+                meta2.className = "admin-item-meta";
+                meta2.textContent = "Ingredients: " + (item.ingredients.length > 160 ? item.ingredients.slice(0, 160) + "…" : item.ingredients);
+                info.appendChild(meta2);
+            }
+
+            main.append(thumb, info);
+
+            const actions = document.createElement("div");
+            actions.className = "admin-actions";
+
+            const editBtn = document.createElement("button");
+            editBtn.type = "button";
+            editBtn.className = "btn-outline";
+            editBtn.textContent = "Edit";
+            editBtn.addEventListener("click", function () {
+                openEditModal(item);
+            });
+
+            const deleteBtn = document.createElement("button");
+            deleteBtn.type = "button";
+            deleteBtn.className = "btn-danger";
+            deleteBtn.textContent = "Delete";
+            deleteBtn.addEventListener("click", async function () {
+                if (!window.confirm("Delete \"" + item.name + "\" (" + item.code + ") from inventory? This cannot be undone.")) return;
+                deleteBtn.disabled = true;
+                try {
+                    await authRequest("/api/admin/products/" + encodeURIComponent(item.code), {}, "DELETE");
+                    setInventoryMsg(document.getElementById("adminInventoryMsg"), "Deleted \"" + item.name + "\" from inventory.", true);
+                    if (products.length === 1 && inventoryPage > 1) inventoryPage--;
+                    await loadInventory();
+                } catch (err) {
+                    setInventoryMsg(document.getElementById("adminInventoryMsg"), err.message, false);
+                    deleteBtn.disabled = false;
+                }
+            });
+
+            actions.append(editBtn, deleteBtn);
+            row.append(main, actions);
+            return row;
+        }));
+
+        paginationEl.hidden = totalPages <= 1;
+        document.getElementById("inventoryPageInfo").textContent = "Page " + page + " of " + totalPages + " (" + total + " items)";
+        document.getElementById("inventoryPrevBtn").disabled = page <= 1;
+        document.getElementById("inventoryNextBtn").disabled = page >= totalPages;
+    }
+
+    async function loadInventory() {
+        const params = new URLSearchParams({
+            page: String(inventoryPage),
+            limit: String(inventoryLimit)
+        });
+        if (inventoryQuery) params.set("q", inventoryQuery);
+        const data = await getFromServer("/api/admin/products?" + params.toString());
+        renderInventory(data);
+    }
+
+    const inventorySearchForm = document.getElementById("inventorySearchForm");
+    const inventorySearchInput = document.getElementById("inventorySearchInput");
+    const inventoryClearBtn = document.getElementById("inventoryClearBtn");
+
+    if (inventorySearchForm) {
+        inventorySearchForm.addEventListener("submit", function (e) {
+            e.preventDefault();
+            inventoryQuery = inventorySearchInput.value.trim();
+            inventoryPage = 1;
+            inventoryClearBtn.hidden = !inventoryQuery;
+            loadInventory().catch(function (err) {
+                setInventoryMsg(document.getElementById("adminInventoryMsg"), err.message, false);
+            });
+        });
+    }
+
+    if (inventoryClearBtn) {
+        inventoryClearBtn.addEventListener("click", function () {
+            inventoryQuery = "";
+            inventoryPage = 1;
+            inventorySearchInput.value = "";
+            inventoryClearBtn.hidden = true;
+            loadInventory().catch(function (err) {
+                setInventoryMsg(document.getElementById("adminInventoryMsg"), err.message, false);
+            });
+        });
+    }
+
+    document.getElementById("inventoryPrevBtn")?.addEventListener("click", function () {
+        if (inventoryPage > 1) {
+            inventoryPage--;
+            loadInventory();
+        }
+    });
+
+    document.getElementById("inventoryNextBtn")?.addEventListener("click", function () {
+        inventoryPage++;
+        loadInventory();
+    });
+
+    document.getElementById("inventoryEditClose")?.addEventListener("click", closeEditModal);
+    document.getElementById("inventoryEditCancel")?.addEventListener("click", closeEditModal);
+    editModal?.addEventListener("click", function (e) {
+        if (e.target === editModal) closeEditModal();
+    });
+    document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && editModal && !editModal.hidden) closeEditModal();
+    });
+
+    if (editForm) {
+        editForm.addEventListener("submit", async function (e) {
+            e.preventDefault();
+            if (!editingProductCode) return;
+
+            const saveBtn = document.getElementById("inventoryEditSave");
+            saveBtn.disabled = true;
+            try {
+                const payload = {
+                    image: document.getElementById("editProductImage").value,
+                    name: document.getElementById("editProductName").value,
+                    brand: document.getElementById("editProductBrand").value,
+                    size: document.getElementById("editProductSize").value,
+                    score: document.getElementById("editProductScore").value,
+                    ingredients: document.getElementById("editProductIngredients").value,
+                    energy: document.getElementById("editProductEnergy").value,
+                    fat: document.getElementById("editProductFat").value,
+                    saturatedFat: document.getElementById("editProductSaturatedFat").value,
+                    carbohydrates: document.getElementById("editProductCarbs").value,
+                    sugars: document.getElementById("editProductSugars").value,
+                    fiber: document.getElementById("editProductFiber").value,
+                    proteins: document.getElementById("editProductProteins").value,
+                    salt: document.getElementById("editProductSalt").value
+                };
+                const res = await authRequest("/api/admin/products/" + encodeURIComponent(editingProductCode), payload, "PATCH");
+                closeEditModal();
+                setInventoryMsg(document.getElementById("adminInventoryMsg"), "Updated \"" + res.product.name + "\".", true);
+                await loadInventory();
+            } catch (err) {
+                setInventoryMsg(document.getElementById("inventoryEditMsg"), err.message, false);
+            } finally {
+                saveBtn.disabled = false;
+            }
+        });
+    }
+
+    getFromServer("/api/auth/me").then(async function (data) {
+        if (!data.user || !data.user.isAdmin) {
+            window.location.href = "index.html";
+            return;
+        }
+        inventoryPageEl.hidden = false;
+        document.getElementById("inventoryAvatar").textContent = data.user.name.charAt(0).toUpperCase();
+        document.getElementById("inventoryIdentity").textContent = data.user.name + " (" + data.user.email + ")";
+        document.getElementById("inventoryRoleBadge").textContent = data.user.isOwnerAdmin ? "Default Admin" : "Admin";
+        await loadInventory();
     }).catch(function () {
         window.location.href = "login.html";
     });

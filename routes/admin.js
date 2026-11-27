@@ -1,7 +1,13 @@
 const express = require("express");
 const { ObjectId } = require("mongodb");
 const { currentUser, getUsers, publicUser, isDefaultAdmin } = require("../services/auth");
-const { getCollection, getSuggestionsCollection } = require("../services/productDb");
+const {
+    getCollection,
+    getSuggestionsCollection,
+    escapeRegex,
+    toAdminProduct,
+    buildProductUpdate
+} = require("../services/productDb");
 
 const router = express.Router();
 
@@ -113,6 +119,82 @@ router.post("/suggestions/:id/reject", async function (req, res, next) {
         );
 
         res.json({ ok: true, status: "rejected" });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// List inventory products (searchable & paginated, for all admins)
+router.get("/products", async function (req, res, next) {
+    try {
+        const products = await getCollection();
+        const q = String(req.query.q || "").trim();
+        const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+        const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 20));
+
+        let filter = {};
+        if (q) {
+            const rx = new RegExp(escapeRegex(q), "i");
+            filter = { $or: [{ product_name: rx }, { brands: rx }, { code: rx }] };
+        }
+
+        const total = await products.countDocuments(filter);
+        const docs = await products
+            .find(filter)
+            .sort({ addedAt: -1, _id: -1 })
+            .skip((page - 1) * limit)
+            .limit(limit)
+            .toArray();
+
+        res.json({
+            products: docs.map(toAdminProduct),
+            total: total,
+            page: page,
+            limit: limit
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Edit an inventory product (for all admins)
+router.patch("/products/:code", async function (req, res, next) {
+    const code = String(req.params.code || "").trim();
+    if (!code) return res.status(400).json({ error: "Product barcode is required." });
+
+    try {
+        const products = await getCollection();
+        const existing = await products.findOne({ code: code });
+        if (!existing) return res.status(404).json({ error: "Product not found." });
+
+        const { $set, $unset } = buildProductUpdate(req.body || {});
+        $set.updatedBy = req.adminUser.email;
+        $set.updatedAt = new Date();
+
+        const update = { $set: $set };
+        if (Object.keys($unset).length > 0) update.$unset = $unset;
+
+        await products.updateOne({ _id: existing._id }, update);
+        const updated = await products.findOne({ _id: existing._id });
+
+        res.json({ ok: true, product: toAdminProduct(updated) });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Remove an inventory product (for all admins)
+router.delete("/products/:code", async function (req, res, next) {
+    const code = String(req.params.code || "").trim();
+    if (!code) return res.status(400).json({ error: "Product barcode is required." });
+
+    try {
+        const products = await getCollection();
+        const existing = await products.findOne({ code: code }, { projection: { _id: 1, code: 1 } });
+        if (!existing) return res.status(404).json({ error: "Product not found." });
+
+        await products.deleteOne({ _id: existing._id });
+        res.json({ ok: true, deletedCode: existing.code });
     } catch (error) {
         next(error);
     }

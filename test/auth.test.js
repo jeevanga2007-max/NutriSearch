@@ -8,10 +8,14 @@ function makeCollection(uniqueFields) {
     const items = [];
     function matches(item, query) {
         for (const [k, v] of Object.entries(query || {})) {
-            if (k === "_id") {
+            if (k === "$or" && Array.isArray(v)) {
+                if (!v.some(function (sub) { return matches(item, sub); })) return false;
+            } else if (k === "_id") {
                 if (String(item._id) !== String(v)) return false;
             } else if (k === "resetTokenExpiresAt" && v && v.$gt) {
                 if (!item.resetTokenExpiresAt || item.resetTokenExpiresAt <= v.$gt) return false;
+            } else if (v instanceof RegExp) {
+                if (!v.test(String(item[k] || ""))) return false;
             } else if (item[k] !== v) {
                 return false;
             }
@@ -42,9 +46,13 @@ function makeCollection(uniqueFields) {
             });
             return {
                 sort() { return this; },
+                skip(n) { results = results.slice(n); return this; },
                 limit(n) { results = results.slice(0, n); return this; },
                 async toArray() { return results; }
             };
+        },
+        async countDocuments(query) {
+            return items.filter(function (item) { return matches(item, query); }).length;
         },
         async insertOne(doc) {
             for (const field of uniqueFields || []) {
@@ -401,7 +409,66 @@ test("default admin controls admin access and admins review suggested products",
     assert.strictEqual(collections.products.items.length, 1);
     assert.strictEqual(collections.products.items[0].code, "8901234567890");
 
-    // 6. Only default admin can permanently delete user accounts (and cannot delete self)
+    // 6. All admins (including Alice) can list, search, edit, and remove inventory items
+    const invListRes = await fetch(base + "/api/admin/products", { headers: { Cookie: aliceCookie } });
+    assert.strictEqual(invListRes.status, 200);
+    const invListBody = await invListRes.json();
+    assert.strictEqual(invListBody.total, 1);
+    assert.strictEqual(invListBody.products[0].code, "8901234567890");
+
+    const invSearchRes = await fetch(base + "/api/admin/products?q=Oats", { headers: { Cookie: aliceCookie } });
+    assert.strictEqual(invSearchRes.status, 200);
+    assert.strictEqual((await invSearchRes.json()).products.length, 1);
+
+    const invNoMatchRes = await fetch(base + "/api/admin/products?q=NonExistentXYZ", { headers: { Cookie: aliceCookie } });
+    assert.strictEqual(invNoMatchRes.status, 200);
+    assert.strictEqual((await invNoMatchRes.json()).products.length, 0);
+
+    const editRes = await fetch(base + "/api/admin/products/8901234567890", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Cookie: aliceCookie },
+        body: JSON.stringify({
+            name: "Organic Rolled Oats",
+            brand: "NatureCo",
+            size: "1 kg",
+            score: "a",
+            image: "http://example.com/oats.jpg",
+            energy: 380,
+            proteins: 13.5
+        })
+    });
+    assert.strictEqual(editRes.status, 200);
+    const editBody = await editRes.json();
+    assert.strictEqual(editBody.product.name, "Organic Rolled Oats");
+    assert.strictEqual(editBody.product.size, "1 kg");
+    assert.strictEqual(editBody.product.score, "a");
+    assert.strictEqual(editBody.product.image, "https://example.com/oats.jpg");
+    assert.strictEqual(editBody.product.energy, 380);
+    assert.strictEqual(editBody.product.proteins, 13.5);
+    assert.strictEqual(editBody.product.updatedBy, "alice@example.com");
+
+    const badEditRes = await fetch(base + "/api/admin/products/8901234567890", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Cookie: aliceCookie },
+        body: JSON.stringify({ energy: 9999 })
+    });
+    assert.strictEqual(badEditRes.status, 400);
+
+    const removeRes = await fetch(base + "/api/admin/products/8901234567890", {
+        method: "DELETE",
+        headers: { Cookie: aliceCookie }
+    });
+    assert.strictEqual(removeRes.status, 200);
+    assert.strictEqual((await removeRes.json()).deletedCode, "8901234567890");
+    assert.strictEqual(collections.products.items.length, 0);
+
+    const removeMissingRes = await fetch(base + "/api/admin/products/8901234567890", {
+        method: "DELETE",
+        headers: { Cookie: ownerCookie }
+    });
+    assert.strictEqual(removeMissingRes.status, 404);
+
+    // 7. Only default admin can permanently delete user accounts (and cannot delete self)
     const aliceDeleteAttempt = await fetch(base + "/api/admin/users/" + ownerBody.user.id, {
         method: "DELETE",
         headers: { Cookie: aliceCookie }
